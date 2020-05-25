@@ -1,0 +1,92 @@
+---
+version: '3'
+services:
+  src1: &src
+    image: "redis:3.0.2"
+    command: >
+      redis-server --maxmemory            64mb
+                   --maxmemory-policy     allkeys-lru
+                   --appendonly           yes
+                   --cluster-enabled      yes
+                   --cluster-config-file  nodes.conf
+                   --cluster-node-timeout 5000
+    ports:
+      - "16371:6379"
+  src2:
+    <<: *src
+    ports:
+      - "16372:6379"
+  src3:
+    <<: *src
+    ports:
+      - "16373:6379"
+  src4:
+    <<: *src
+    ports:
+      - "16374:6379"
+  src5:
+    <<: *src
+    ports:
+      - "16375:6379"
+  src6:
+    <<: *src
+    ports:
+      - "16376:6379"
+  src-redis-cluster:
+    build: "docker/redis_cluster"
+    environment:
+      - "HOST_PREFIX=src"
+    depends_on:
+      - "src1"
+      - "src2"
+      - "src3"
+      - "src4"
+      - "src5"
+      - "src6"
+  dest1: &dest
+    image: "redis:5.0.7"
+    command: >
+      redis-server --maxmemory            64mb
+                   --maxmemory-policy     allkeys-lru
+                   --appendonly           yes
+                   --cluster-enabled      yes
+                   --cluster-config-file  nodes.conf
+                   --cluster-node-timeout 5000
+    ports:
+      - "16381:6379"
+  dest2:
+    <<: *dest
+    ports:
+      - "16382:6379"
+  dest3:
+    <<: *dest
+    ports:
+      - "16383:6379"
+  dest4:
+    <<: *dest
+    ports:
+      - "16384:6379"
+  dest5:
+    <<: *dest
+    ports:
+      - "16385:6379"
+  dest6:
+    <<: *dest
+    ports:
+      - "16386:6379"
+  dest-redis-cluster:
+    build: "docker/redis_cluster"
+    environment:
+      - "HOST_PREFIX=dest"
+    depends_on:
+      - "dest1"
+      - "dest2"
+      - "dest3"
+      - "dest4"
+      - "dest5"
+      - "dest6"
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
