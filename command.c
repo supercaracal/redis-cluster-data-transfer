@@ -51,7 +51,8 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
     buf = (char *) malloc(sizeof(char) * size);
     if (fgets(buf, size, conn->fr) == NULL) {
       free(buf);
-      break;
+      fprintf(stderr, "fgets(3): returns NULL when execute `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
+      return MY_ERR_CODE;
     }
     switch (buf[0]) {
       case '+':
@@ -65,8 +66,11 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
         COPY_REPLY_LINE_WITHOUT_META(reply, buf, 1);
         break;
       case '$':
-        size = atoi(buf + 1) + 3;
-        if (size > -1) ++i;
+        size = atoi(buf + 1);
+        if (size > -1) {
+          size += 3;
+          ++i;
+        }
         break;
       case '*':
         i += atoi(buf + 1);

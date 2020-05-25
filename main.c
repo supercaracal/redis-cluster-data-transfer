@@ -15,10 +15,15 @@ int main(int argc, char **argv) {
   }
 
   if (createConnection(argv[1], &conn) == MY_ERR_CODE) exit(1);
+
   if (command(&conn, "CLUSTER SLOTS", &reply) == MY_ERR_CODE) exit(1);
   buildSlotNodeTable(&reply, slots);
-
   freeReply(&reply);
+
+  if (command(&conn, "GET key1", &reply) == MY_ERR_CODE) exit(1);
+  buildSlotNodeTable(&reply, slots);
+  freeReply(&reply);
+
   freeConnection(&conn);
   exit(0);
 }
