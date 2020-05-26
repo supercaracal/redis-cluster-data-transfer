@@ -7,24 +7,33 @@
 int main(int argc, char **argv) {
   Conn conn;
   Reply reply;
-  int slots[CLUSTER_SLOT_SIZE];
+  int ret, slots[CLUSTER_SLOT_SIZE];
 
   if (argc < 3 || argc > 3) {
     fprintf(stderr, "Usage: ./main [src-host:port] [dest-host:port]\n");
     exit(1);
   }
 
-  if (createConnection(argv[1], &conn) == MY_ERR_CODE) exit(1);
+  ret = createConnection(argv[1], &conn);
+  ASSERT(ret);
 
-  if (command(&conn, "CLUSTER SLOTS", &reply) == MY_ERR_CODE) exit(1);
+  ret = command(&conn, "CLUSTER SLOTS", &reply);
+  ASSERT(ret);
   buildSlotNodeTable(&reply, slots);
   freeReply(&reply);
 
-  if (command(&conn, "CLUSTER NODES", &reply) == MY_ERR_CODE) exit(1);
+  ret = command(&conn, "CLUSTER NODES", &reply);
+  ASSERT(ret);
   buildSlotNodeTable(&reply, slots);
   freeReply(&reply);
 
-  if (command(&conn, "GET unknown", &reply) == MY_ERR_CODE) exit(1);
+//  ret = command(&conn, "INFO", &reply);
+//  ASSERT(ret);
+//  buildSlotNodeTable(&reply, slots);
+//  freeReply(&reply);
+
+  ret = command(&conn, "GET key1", &reply);
+  ASSERT(ret);
   buildSlotNodeTable(&reply, slots);
   freeReply(&reply);
 

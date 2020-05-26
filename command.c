@@ -37,9 +37,8 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
   char *buf;
 
   size = strlen(cmd);
-  buf = (char *) malloc(sizeof(char) * (size + 3));
-  strncpy(buf, cmd, size);
-  strncat(buf, "\r\n", 2);
+  buf = (char *) malloc(sizeof(char) * (size + 3)); // \r \n \0
+  snprintf(buf, size + 3, "%s\r\n", cmd);
   if (fputs(buf, conn->fw) == EOF) {
     fprintf(stderr, "fputs(3): %s to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
@@ -80,6 +79,7 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
         break;
       default:
         // bulk string
+        // FIXME: INFO command
         tmp = copyReplyLineWithoutMeta(reply, buf, 0);
         if (tmp < size) {
           // multi line (e.g. CLUSTER NODES)
@@ -95,7 +95,7 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
 
   if (reply->err) {
     fprintf(stderr, "Tried `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
-    fprintf(stderr, "Error: %s\n", reply->lines[reply->i - 1]);
+    fprintf(stderr, "Error: %s\n", LAST_LINE(reply));
     return MY_ERR_CODE;
   }
 
