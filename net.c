@@ -66,13 +66,8 @@ static int setSocketOptions(int sock) {
   return MY_OK_CODE;
 }
 
-int createConnection(const char *str, Conn *c) {
+int createConnection(Conn *c) {
   int sock;
-
-  if (parseAddress(str, &c->addr) == MY_ERR_CODE) {
-    fprintf(stderr, "Could not parse argument: %s\n", str);
-    return MY_ERR_CODE;
-  }
 
   sock = connectServer(&c->addr);
   if (sock == MY_ERR_CODE) {
@@ -98,6 +93,15 @@ int createConnection(const char *str, Conn *c) {
   }
 
   return MY_OK_CODE;
+}
+
+int createConnectionFromStr(const char *str, Conn *c) {
+  if (parseAddress(str, &c->addr) == MY_ERR_CODE) {
+    fprintf(stderr, "Could not parse argument: %s\n", str);
+    return MY_ERR_CODE;
+  }
+
+  return createConnection(c);
 }
 
 void freeConnection(Conn *c) {

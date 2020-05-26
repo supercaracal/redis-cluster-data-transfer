@@ -3,8 +3,8 @@
 
 #include "./generic.h"
 
-int command(Conn *c, const char *cmd, Reply *reply);
-void freeReply(Reply *reply);
-void printReplyLines(Reply *reply);
+int command(Conn *, const char *, Reply *);
+void freeReply(Reply *);
+void printReplyLines(Reply *);
 
 #endif // COMMAND_H_

@@ -3,6 +3,8 @@
 
 #include "./generic.h"
 
-void buildSlotNodeTable(Reply *reply, int *slots);
+int buildClusterState(Reply *, Cluster *);
+void freeClusterState(Cluster *);
+void printClusterSlots(Cluster *);
 
 #endif // CLUSTER_H_

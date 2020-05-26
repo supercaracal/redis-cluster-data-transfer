@@ -3,7 +3,8 @@
 
 #include "./generic.h"
 
-int createConnection(const char *, Conn *);
+int createConnection(Conn *);
+int createConnectionFromStr(const char *, Conn *);
 void freeConnection(Conn *);
 
 #endif // NET_H_

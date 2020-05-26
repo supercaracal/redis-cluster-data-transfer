@@ -9,16 +9,18 @@
   r->i = 0;\
   r->err = 0;\
   r->lines = (char **) malloc(sizeof(char *) * r->size);\
+  r->types = (ReplyType *) malloc(sizeof(ReplyType) * r->size);\
 } while (0)
 
 #define EXPAND_REPLY_IF_NEEDED(r) do {\
   if (r->i == r->size) {\
     r->size *= 2;\
     r->lines = (char **) realloc(r->lines, sizeof(char *) * r->size);\
+    r->types = (ReplyType *) realloc(r->types, sizeof(ReplyType) * r->size);\
   }\
 } while (0)
 
-static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset) {
+static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset, ReplyType t) {
   int len, realLen;
 
   len = realLen = strlen(buf);
@@ -28,6 +30,7 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   reply->lines[reply->i] = (char *) malloc(sizeof(char) * (len + 1)); // terminator
   strncpy(reply->lines[reply->i], buf + offset, len + 1); // terminator
   reply->lines[reply->i][len] = '\0';
+  reply->types[reply->i] = t;
   reply->i++;
   return realLen;
 }
@@ -61,14 +64,14 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
     // @see https://redis.io/topics/protocol Redis Protocol specification
     switch (buf[0]) {
       case '+':
-        copyReplyLineWithoutMeta(reply, buf, 1);
+        copyReplyLineWithoutMeta(reply, buf, 1, STRING);
         break;
       case '-':
-        copyReplyLineWithoutMeta(reply, buf, 1);
+        copyReplyLineWithoutMeta(reply, buf, 1, STRING);
         reply->err = 1;
         break;
       case ':':
-        copyReplyLineWithoutMeta(reply, buf, 1);
+        copyReplyLineWithoutMeta(reply, buf, 1, INTEGER);
         break;
       case '$':
         size = atoi(buf + 1);
@@ -79,7 +82,7 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
         break;
       default:
         // bulk string
-        readSize = copyReplyLineWithoutMeta(reply, buf, 0);
+        readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
         if (readSize < size) {
           // multi line (e.g. CLUSTER NODES, INFO, ...)
           size -= readSize;
@@ -107,6 +110,8 @@ void freeReply(Reply *reply) {
   for (i = 0; i < reply->i; ++i) free(reply->lines[i]);
   free(reply->lines);
   reply->lines = NULL;
+  free(reply->types);
+  reply->types = NULL;
   reply->i = reply->size = reply->err = 0;
 }
 
