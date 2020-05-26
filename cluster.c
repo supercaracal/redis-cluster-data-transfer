@@ -1,5 +1,6 @@
 #include <string.h>
 #include "./cluster.h"
+#include "./net.h"
 
 #define DEFAULT_NODE_SIZE 8
 
@@ -37,21 +38,25 @@ int buildClusterState(Reply *reply, Cluster *cluster) {
   return MY_OK_CODE;
 }
 
-void freeClusterState(Cluster *c) {
+int freeClusterState(Cluster *c) {
   int i;
 
-  for (i = 0; i < c->i; ++i) free(c->nodes[i]);
+  for (i = 0; i < c->i; ++i) {
+    if (freeConnection(c->nodes[i]) == MY_ERR_CODE) return MY_ERR_CODE;
+    free(c->nodes[i]);
+  }
   free(c->nodes);
   c->nodes = NULL;
   c->size = c->i = 0;
+  return MY_OK_CODE;
 }
 
 void printClusterSlots(Cluster *c) {
   int i;
-  HostPort hp;
+  Conn *conn;
 
   for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) {
-    hp = c->nodes[c->slots[i]]->addr;
-    fprintf(stdout, "%05d\t%s:%s\n", i, hp.host, hp.port);
+    conn = FIND_CONN(c, i);
+    fprintf(stdout, "%05d\t%s:%s\n", i, conn->addr.host, conn->addr.port);
   }
 }

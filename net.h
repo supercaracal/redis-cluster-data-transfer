@@ -5,6 +5,6 @@
 
 int createConnection(Conn *);
 int createConnectionFromStr(const char *, Conn *);
-void freeConnection(Conn *);
+int freeConnection(Conn *);
 
 #endif // NET_H_

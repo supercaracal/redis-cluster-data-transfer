@@ -104,9 +104,22 @@ int createConnectionFromStr(const char *str, Conn *c) {
   return createConnection(c);
 }
 
-void freeConnection(Conn *c) {
-  fclose(c->fw);
+int freeConnection(Conn *c) {
+  fflush(c->fw);
+  fflush(c->fr);
+
+  if (fclose(c->fw) == EOF) {
+    perror("fclose(3): for write");
+    return MY_ERR_CODE;
+  };
   c->fw = NULL;
-  fclose(c->fr);
+
+  // FIXME: The socket is shared between write and read. So it is already bad descriptor.
+  // if (fclose(c->fr) == EOF) {
+  //   perror("fclose(3): for read");
+  //   return MY_ERR_CODE;
+  // }
   c->fr = NULL;
+
+  return MY_OK_CODE;
 }

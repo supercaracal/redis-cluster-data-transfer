@@ -15,6 +15,8 @@
 } while (0)
 
 #define LAST_LINE(r) (r->i > 0 ? r->lines[r->i - 1] : NULL)
+#define LAST_LINE2(r) (r.i > 0 ? r.lines[r.i - 1] : NULL)
+#define FIND_CONN(c, i) (c->nodes[c->slots[i]])
 
 typedef struct { char host[MAX_HOST_SIZE], port[MAX_PORT_SIZE]; } HostPort;
 typedef struct { FILE *fw, *fr; HostPort addr; } Conn;
