@@ -27,10 +27,10 @@ int main(int argc, char **argv) {
   buildSlotNodeTable(&reply, slots);
   freeReply(&reply);
 
-//  ret = command(&conn, "INFO", &reply);
-//  ASSERT(ret);
-//  buildSlotNodeTable(&reply, slots);
-//  freeReply(&reply);
+  ret = command(&conn, "INFO", &reply);
+  ASSERT(ret);
+  buildSlotNodeTable(&reply, slots);
+  freeReply(&reply);
 
   ret = command(&conn, "GET key1", &reply);
   ASSERT(ret);

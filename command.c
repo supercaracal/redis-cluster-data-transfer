@@ -19,9 +19,9 @@
 } while (0)
 
 static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset) {
-  int len;
+  int len, realLen;
 
-  len = strlen(buf);
+  len = realLen = strlen(buf);
   if (buf[len - 1] == '\n') --len;
   if (buf[len - 1] == '\r') --len;
   len -= offset; // special chars
@@ -29,11 +29,11 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   strncpy(reply->lines[reply->i], buf + offset, len + 1); // terminator
   reply->lines[reply->i][len] = '\0';
   reply->i++;
-  return len;
+  return realLen;
 }
 
 int command(Conn *conn, const char *cmd, Reply *reply) {
-  int i, size, tmp;
+  int i, size, readSize;
   char *buf;
 
   size = strlen(cmd);
@@ -79,11 +79,10 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
         break;
       default:
         // bulk string
-        // FIXME: INFO command
-        tmp = copyReplyLineWithoutMeta(reply, buf, 0);
-        if (tmp < size) {
-          // multi line (e.g. CLUSTER NODES)
-          size -= tmp + 1; // \n
+        readSize = copyReplyLineWithoutMeta(reply, buf, 0);
+        if (readSize < size) {
+          // multi line (e.g. CLUSTER NODES, INFO, ...)
+          size -= readSize;
           if (size > 0) ++i;
         } else {
           size = DEFAULT_REPLY_SIZE;
