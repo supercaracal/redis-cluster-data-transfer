@@ -5,5 +5,6 @@
 
 int command(Conn *c, const char *cmd, Reply *reply);
 void freeReply(Reply *reply);
+void printReplyLines(Reply *reply);
 
 #endif // COMMAND_H_
