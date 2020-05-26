@@ -1,4 +1,4 @@
-Redis Cluster Data Transfer
+Redis Cluster Data Transfer ![](https://github.com/supercaracal/redis-cluster-data-transfer/workflows/Test/badge.svg?branch=master)
 =================================
 
 I want to migrate my redis cluster from 3 to 5.  
