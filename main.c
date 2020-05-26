@@ -20,7 +20,11 @@ int main(int argc, char **argv) {
   buildSlotNodeTable(&reply, slots);
   freeReply(&reply);
 
-  if (command(&conn, "GET key1", &reply) == MY_ERR_CODE) exit(1);
+  if (command(&conn, "CLUSTER NODES", &reply) == MY_ERR_CODE) exit(1);
+  buildSlotNodeTable(&reply, slots);
+  freeReply(&reply);
+
+  if (command(&conn, "GET unknown", &reply) == MY_ERR_CODE) exit(1);
   buildSlotNodeTable(&reply, slots);
   freeReply(&reply);
 

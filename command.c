@@ -18,17 +18,22 @@
   }\
 } while (0)
 
-#define COPY_REPLY_LINE_WITHOUT_META(reply, buf, offset) do {\
-  int len = strlen(buf) + 1 - 2 - offset;\
-  reply->lines[reply->i] = (char *) malloc(sizeof(char) * len);\
-  strncpy(reply->lines[reply->i], buf + offset, len);\
-  reply->lines[reply->i][len - 1] = '\0';\
-  reply->i++;\
-} while (0)
+static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset) {
+  int len;
 
-// @see https://redis.io/topics/protocol Redis Protocol specification
+  len = strlen(buf);
+  if (buf[len - 1] == '\n') --len;
+  if (buf[len - 1] == '\r') --len;
+  len -= offset; // special chars
+  reply->lines[reply->i] = (char *) malloc(sizeof(char) * (len + 1)); // terminator
+  strncpy(reply->lines[reply->i], buf + offset, len + 1); // terminator
+  reply->lines[reply->i][len] = '\0';
+  reply->i++;
+  return len;
+}
+
 int command(Conn *conn, const char *cmd, Reply *reply) {
-  int i, size;
+  int i, size, tmp;
   char *buf;
 
   size = strlen(cmd);
@@ -48,45 +53,49 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
   INIT_REPLY(reply);
   for (i = 1, size = DEFAULT_REPLY_SIZE; i > 0; --i) {
     EXPAND_REPLY_IF_NEEDED(reply);
-    buf = (char *) malloc(sizeof(char) * size);
-    if (fgets(buf, size, conn->fr) == NULL) {
+    buf = (char *) malloc(sizeof(char) * (size + 3)); // \r \n \0
+    if (fgets(buf, size + 3, conn->fr) == NULL) { // \r \n \0
       free(buf);
       fprintf(stderr, "fgets(3): returns NULL when execute `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
       return MY_ERR_CODE;
     }
+    // @see https://redis.io/topics/protocol Redis Protocol specification
     switch (buf[0]) {
       case '+':
-        COPY_REPLY_LINE_WITHOUT_META(reply, buf, 1);
+        copyReplyLineWithoutMeta(reply, buf, 1);
         break;
       case '-':
-        COPY_REPLY_LINE_WITHOUT_META(reply, buf, 1);
+        copyReplyLineWithoutMeta(reply, buf, 1);
         reply->err = 1;
         break;
       case ':':
-        COPY_REPLY_LINE_WITHOUT_META(reply, buf, 1);
+        copyReplyLineWithoutMeta(reply, buf, 1);
         break;
       case '$':
         size = atoi(buf + 1);
-        if (size > -1) {
-          size += 3;
-          ++i;
-        }
+        if (size > -1) ++i;
         break;
       case '*':
         i += atoi(buf + 1);
         break;
       default:
         // bulk string
-        COPY_REPLY_LINE_WITHOUT_META(reply, buf, 0);
-        size = DEFAULT_REPLY_SIZE;
+        tmp = copyReplyLineWithoutMeta(reply, buf, 0);
+        if (tmp < size) {
+          // multi line (e.g. CLUSTER NODES)
+          size -= tmp + 1; // \n
+          if (size > 0) ++i;
+        } else {
+          size = DEFAULT_REPLY_SIZE;
+        }
         break;
     }
     free(buf);
   }
 
   if (reply->err) {
-    fprintf(stderr, "%s to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
-    fprintf(stderr, "Error: %s\n", reply->lines[0]);
+    fprintf(stderr, "Tried `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
+    fprintf(stderr, "Error: %s\n", reply->lines[reply->i - 1]);
     return MY_ERR_CODE;
   }
 
