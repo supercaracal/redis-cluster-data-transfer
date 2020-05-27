@@ -8,6 +8,7 @@
 #define MY_ERR_CODE -1
 #define MAX_HOST_SIZE 256
 #define MAX_PORT_SIZE 8
+#define MAX_CMD_SIZE 4096
 #define CLUSTER_SLOT_SIZE 16384
 
 #define ASSERT(ret) do {\

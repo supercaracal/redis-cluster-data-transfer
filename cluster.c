@@ -1,8 +1,36 @@
 #include <string.h>
 #include "./cluster.h"
 #include "./net.h"
+#include "./command.h"
 
 #define DEFAULT_NODE_SIZE 8
+
+int fetchClusterState(const char *str, Cluster *cluster) {
+  Conn conn;
+  Reply reply;
+  int ret, i;
+
+  ret = createConnectionFromStr(str, &conn);
+  if (ret == MY_ERR_CODE) return ret;
+
+  ret = command(&conn, "CLUSTER SLOTS", &reply);
+  if (ret == MY_ERR_CODE) return ret;
+
+  ret = buildClusterState(&reply, cluster);
+  if (ret == MY_ERR_CODE) return ret;
+
+  for (i = 0; i < cluster->i; ++i) {
+    ret = createConnection(cluster->nodes[i]);
+    if (ret == MY_ERR_CODE) return ret;
+  }
+
+  freeReply(&reply);
+
+  ret = freeConnection(&conn);
+  if (ret == MY_ERR_CODE) return ret;
+
+  return MY_OK_CODE;
+}
 
 int buildClusterState(const Reply *reply, Cluster *cluster) {
   int i, j, first, last;
@@ -63,5 +91,13 @@ void printClusterSlots(const Cluster *c) {
   for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) {
     conn = FIND_CONN(c, i);
     fprintf(stdout, "%05d\t%s:%s\n", i, conn->addr.host, conn->addr.port);
+  }
+}
+
+void printClusterNodes(const Cluster *c) {
+  int i;
+
+  for (i = 0; i < c->i; ++i) {
+    printf("%s:%s\n", c->nodes[i]->addr.host, c->nodes[i]->addr.port);
   }
 }

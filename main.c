@@ -3,37 +3,9 @@
 #include "./command.h"
 #include "./cluster.h"
 
-#define MAX_CMD_SIZE 4096
 #define MIGRATE_CMD_TIMEOUT 30000
 
 #define LOG_PROG(i) (printf("%5d slots were copied\n", i))
-
-static int fetchClusterState(const char *str, Cluster *cluster) {
-  Conn conn;
-  Reply reply;
-  int ret, i;
-
-  ret = createConnectionFromStr(str, &conn);
-  if (ret == MY_ERR_CODE) return ret;
-
-  ret = command(&conn, "CLUSTER SLOTS", &reply);
-  if (ret == MY_ERR_CODE) return ret;
-
-  ret = buildClusterState(&reply, cluster);
-  if (ret == MY_ERR_CODE) return ret;
-
-  for (i = 0; i < cluster->i; ++i) {
-    ret = createConnection(cluster->nodes[i]);
-    if (ret == MY_ERR_CODE) return ret;
-  }
-
-  freeReply(&reply);
-
-  ret = freeConnection(&conn);
-  if (ret == MY_ERR_CODE) return ret;
-
-  return MY_OK_CODE;
-}
 
 static int countKeysInSlot(const Conn *conn, int slot) {
   char buf[MAX_CMD_SIZE], *line;
