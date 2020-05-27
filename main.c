@@ -6,6 +6,8 @@
 #define MAX_CMD_SIZE 4096
 #define MIGRATE_CMD_TIMEOUT 30000
 
+#define LOG_PROG(i) (printf("%5d slots were copied\n", i))
+
 static int fetchClusterState(const char *str, Cluster *cluster) {
   Conn conn;
   Reply reply;
@@ -67,6 +69,8 @@ static int migrateKeys(const Cluster *src, const Cluster *dest) {
   Reply reply;
 
   for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) {
+    if (i > 0 && i % 1000 == 0) LOG_PROG(i);
+
     ret = countKeysInSlot(FIND_CONN(src, i), i);
     if (ret == MY_ERR_CODE) return ret;
 
@@ -84,6 +88,7 @@ static int migrateKeys(const Cluster *src, const Cluster *dest) {
 
     freeReply(&reply);
   }
+  LOG_PROG(CLUSTER_SLOT_SIZE);
 
   return MY_OK_CODE;
 }
