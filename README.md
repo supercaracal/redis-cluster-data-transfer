@@ -11,7 +11,7 @@ Official Redis client has migration feature but source data is deleted.
 
 I need a copy tool.
 
-### Using commands
+## Using commands
 
 * [CLUSTER SLOTS](https://redis.io/commands/cluster-slots)
   * For mapping nodes and slots
@@ -22,20 +22,26 @@ I need a copy tool.
 * [MIGRATE](https://redis.io/commands/migrate)
   * For copying a key from source to destination
 
-### Not supported
+## Not supported
 * AUTH
 * SSL
 * RESP3
 
 so on and so forth
 
-### TODO
+## TODO
 * multi thread
 
-### Trial
+## Trial
 
 ```
 $ docker-compose up -d
 $ make
 $ bin/exe 127.0.0.1:16371 127.0.0.1:16381
 ```
+
+## See also
+* [alibaba/RedisShake](https://github.com/alibaba/RedisShake)
+* [frsyuki/embulk-plugin-redis](https://github.com/frsyuki/embulk-plugin-redis)
+* [Netflix/dynomite](https://github.com/Netflix/dynomite)
+* [sripathikrishnan/redis-rdb-tools](https://github.com/sripathikrishnan/redis-rdb-tools)
