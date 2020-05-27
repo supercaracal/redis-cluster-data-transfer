@@ -40,6 +40,12 @@ $ make
 $ bin/exe 127.0.0.1:16371 127.0.0.1:16381
 ```
 
+## Dry run
+
+```
+$ bin/exe 127.0.0.1:16371 127.0.0.1:16381 -C
+```
+
 ## See also
 * [alibaba/RedisShake](https://github.com/alibaba/RedisShake)
 * [frsyuki/embulk-plugin-redis](https://github.com/frsyuki/embulk-plugin-redis)

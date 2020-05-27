@@ -63,12 +63,12 @@ static int copyKey(const Conn *src, const Conn *dest, const char *key) {
   return MY_OK_CODE;
 }
 
-static int migrateKeys(const Cluster *src, const Cluster *dest) {
+static int migrateKeys(const Cluster *src, const Cluster *dest, int dryRun) {
   char buf[MAX_CMD_SIZE];
-  int i, j, ret, cnt, copied, failed;
+  int i, j, ret, cnt, copied, failed, found;
   Reply reply;
 
-  for (i = failed = copied = 0; i < CLUSTER_SLOT_SIZE; ++i) {
+  for (i = failed = copied = found = 0; i < CLUSTER_SLOT_SIZE; ++i) {
     if (i > 0 && i % 1000 == 0) LOG_PROG(i);
 
     ret = countKeysInSlot(FIND_CONN(src, i), i);
@@ -82,6 +82,10 @@ static int migrateKeys(const Cluster *src, const Cluster *dest) {
     if (ret == MY_ERR_CODE) return ret;
 
     for (j = 0; j < reply.i; ++j) {
+      if (dryRun) {
+        ++found;
+        continue;
+      }
       ret = copyKey(FIND_CONN(src, i), FIND_CONN(dest, i), reply.lines[j]);
       ret == MY_ERR_CODE ? ++failed : ++copied;
     }
@@ -89,20 +93,27 @@ static int migrateKeys(const Cluster *src, const Cluster *dest) {
     freeReply(&reply);
   }
   LOG_PROG(CLUSTER_SLOT_SIZE);
-  printf("%d keys were copied\n", copied);
-  printf("%d keys were failed\n", failed);
+  if (dryRun) {
+    printf("%d keys were found\n", found);
+  } else {
+    printf("%d keys were copied\n", copied);
+    printf("%d keys were failed\n", failed);
+  }
 
   return MY_OK_CODE;
 }
 
 int main(int argc, char **argv) {
-  int ret;
+  int ret, dryRun;
   Cluster src, dest;
 
-  if (argc < 3 || argc > 3) {
-    fprintf(stderr, "Usage: bin/exe [src-host:port] [dest-host:port]\n");
+  if (argc < 3 || argc > 4) {
+    fprintf(stderr, "Usage: bin/exe src-host:port dest-host:port [-C]\n");
+    fprintf(stderr, "  -C   dry run\n");
     exit(1);
   }
+
+  dryRun = argc == 4 ? 1 : 0;
 
   ret = fetchClusterState(argv[1], &src);
   ASSERT(ret);
@@ -111,7 +122,7 @@ int main(int argc, char **argv) {
   ASSERT(ret);
 
   // TODO: multi thread
-  ret = migrateKeys(&src, &dest);
+  ret = migrateKeys(&src, &dest, dryRun);
   ASSERT(ret);
 
   ret = freeClusterState(&src);
