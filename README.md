@@ -6,7 +6,7 @@ Official Redis client has migration feature but source data is deleted.
 
 [Redis cluster tutorial](https://redis.io/topics/cluster-tutorial)
 
-> There is an alternative way to import data from external instances to a Redis Cluster, which is to use the `redis-cli --cluster import` command.  
+> There is an alternative way to import data from external instances to a Redis Cluster, which is to use the `redis-cli --cluster import` command.
 > The command moves all the keys of a running instance (deleting the keys from the source instance) to the specified pre-existing Redis Cluster.
 
 I need a copy tool.
