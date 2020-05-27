@@ -9,14 +9,21 @@
   r->i = 0;\
   r->err = 0;\
   r->lines = (char **) malloc(sizeof(char *) * r->size);\
+  ASSERT_MALLOC(r->lines, "for init reply lines");\
   r->types = (ReplyType *) malloc(sizeof(ReplyType) * r->size);\
+  ASSERT_MALLOC(r->types, "for init reply types");\
 } while (0)
 
 #define EXPAND_REPLY_IF_NEEDED(r) do {\
   if (r->i == r->size) {\
+    void *tmp;\
     r->size *= 2;\
-    r->lines = (char **) realloc(r->lines, sizeof(char *) * r->size);\
-    r->types = (ReplyType *) realloc(r->types, sizeof(ReplyType) * r->size);\
+    tmp = realloc(r->lines, sizeof(char *) * r->size);\
+    ASSERT_REALLOC(tmp, "for reply lines");\
+    r->lines = (char **) tmp;\
+    tmp = realloc(r->types, sizeof(ReplyType) * r->size);\
+    ASSERT_REALLOC(tmp, "for reply types");\
+    r->types = (ReplyType *) tmp;\
   }\
 } while (0)
 
@@ -28,6 +35,7 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   if (buf[len - 1] == '\r') --len;
   len -= offset; // special chars
   reply->lines[reply->i] = (char *) malloc(sizeof(char) * (len + 1)); // terminator
+  ASSERT_MALLOC(reply->lines[reply->i], "for new reply lines");
   strncpy(reply->lines[reply->i], buf + offset, len + 1); // terminator
   reply->lines[reply->i][len] = '\0';
   reply->types[reply->i] = t;
@@ -41,6 +49,7 @@ int command(const Conn *conn, const char *cmd, Reply *reply) {
 
   size = strlen(cmd);
   buf = (char *) malloc(sizeof(char) * (size + 3)); // \r \n \0
+  ASSERT_MALLOC(buf, "for writing command buffer");
   snprintf(buf, size + 3, "%s\r\n", cmd);
   if (fputs(buf, conn->fw) == EOF) {
     fprintf(stderr, "fputs(3): %s to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
@@ -56,6 +65,7 @@ int command(const Conn *conn, const char *cmd, Reply *reply) {
   for (i = 1, size = DEFAULT_REPLY_SIZE; i > 0; --i) {
     EXPAND_REPLY_IF_NEEDED(reply);
     buf = (char *) malloc(sizeof(char) * (size + 3)); // \r \n \0
+    ASSERT_MALLOC(buf, "for reading reply buffer");
     if (fgets(buf, size + 3, conn->fr) == NULL) { // \r \n \0
       free(buf);
       fprintf(stderr, "fgets(3): returns NULL when execute `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);

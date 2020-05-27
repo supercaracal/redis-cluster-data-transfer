@@ -6,10 +6,12 @@
 
 int buildClusterState(const Reply *reply, Cluster *cluster) {
   int i, j, first, last;
+  void *tmp;
 
   cluster->size = DEFAULT_NODE_SIZE;
   cluster->i = 0;
   cluster->nodes = (Conn **) malloc(sizeof(Conn *) * cluster->size);
+  ASSERT_MALLOC(cluster->nodes, "for init cluster connections");
 
   for (i = 0; i < reply->i; ++i) {
     if (i + 3 >= reply->i) break;
@@ -17,10 +19,13 @@ int buildClusterState(const Reply *reply, Cluster *cluster) {
 
     if (cluster->i == cluster->size) {
       cluster->size *= 2;
-      cluster->nodes = (Conn **) realloc(cluster->nodes, sizeof(Conn *) * cluster->size);
+      tmp = realloc(cluster->nodes, sizeof(Conn *) * cluster->size);
+      ASSERT_REALLOC(tmp, "for cluster connections");
+      cluster->nodes = (Conn **) tmp;
     }
 
     cluster->nodes[cluster->i] = (Conn *) malloc(sizeof(Conn));
+    ASSERT_MALLOC(cluster->nodes[cluster->i], "for new cluster connection");
 
     first = atoi(reply->lines[i]);
     last = atoi(reply->lines[i+1]);

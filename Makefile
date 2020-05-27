@@ -1,8 +1,10 @@
 CC := gcc
 CFLAGS += -Wall
-MY_TARGET_FILES := main.o command.o net.o cluster.o
+MY_TARGET_FILES := $(addsuffix .o,main command net cluster)
 
 build: bin/exe
+
+debug: bin/dbg
 
 bin/exe: CFLAGS += -O2
 bin/exe: $(MY_TARGET_FILES)

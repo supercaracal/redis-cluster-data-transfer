@@ -14,6 +14,20 @@
   if (ret == MY_ERR_CODE) exit(1);\
 } while (0)
 
+#define ASSERT_MALLOC(p, msg) do {\
+  if (p == NULL) {\
+    fprintf(stderr, "malloc(3): %s\n", msg);\
+    exit(1);\
+  }\
+} while (0)
+
+#define ASSERT_REALLOC(p, msg) do {\
+  if (p == NULL) {\
+    fprintf(stderr, "realloc(3): %s\n", msg);\
+    exit(1);\
+  }\
+} while (0)
+
 #define LAST_LINE(r) (r->i > 0 ? r->lines[r->i - 1] : NULL)
 #define LAST_LINE2(r) (r.i > 0 ? r.lines[r.i - 1] : NULL)
 #define FIND_CONN(c, i) (c->nodes[c->slots[i]])
