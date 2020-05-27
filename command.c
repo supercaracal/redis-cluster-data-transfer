@@ -35,7 +35,7 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   return realLen;
 }
 
-int command(Conn *conn, const char *cmd, Reply *reply) {
+int command(const Conn *conn, const char *cmd, Reply *reply) {
   int i, size, readSize;
   char *buf;
 
@@ -115,10 +115,8 @@ void freeReply(Reply *reply) {
   reply->i = reply->size = reply->err = 0;
 }
 
-void printReplyLines(Reply *reply) {
+void printReplyLines(const Reply *reply) {
   int i;
 
-  fprintf(stdout, "------------------------------------------------------------\n");
   for (i = 0; i < reply->i; ++i) fprintf(stdout, "%s\n", reply->lines[i]);
-  fprintf(stdout, "------------------------------------------------------------\n");
 }

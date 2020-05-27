@@ -3,8 +3,8 @@
 
 #include "./generic.h"
 
-int buildClusterState(Reply *, Cluster *);
+int buildClusterState(const Reply *, Cluster *);
 int freeClusterState(Cluster *);
-void printClusterSlots(Cluster *);
+void printClusterSlots(const Cluster *);
 
 #endif // CLUSTER_H_

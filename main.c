@@ -33,7 +33,7 @@ static int fetchClusterState(const char *str, Cluster *cluster) {
   return MY_OK_CODE;
 }
 
-static int countKeysInSlot(Conn *conn, int slot) {
+static int countKeysInSlot(const Conn *conn, int slot) {
   char buf[MAX_CMD_SIZE], *line;
   int ret;
   Reply reply;
@@ -48,7 +48,7 @@ static int countKeysInSlot(Conn *conn, int slot) {
   return ret;
 }
 
-static int copyKey(Conn *src, Conn *dest, const char *key) {
+static int copyKey(const Conn *src, const Conn *dest, const char *key) {
   char buf[MAX_CMD_SIZE];
   int ret;
   Reply reply;
@@ -61,7 +61,7 @@ static int copyKey(Conn *src, Conn *dest, const char *key) {
   return MY_OK_CODE;
 }
 
-static int migrateKeys(Cluster *src, Cluster *dest) {
+static int migrateKeys(const Cluster *src, const Cluster *dest) {
   char buf[MAX_CMD_SIZE];
   int i, j, ret, cnt;
   Reply reply;

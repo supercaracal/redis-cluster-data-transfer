@@ -25,7 +25,7 @@ static int parseAddress(const char *str, HostPort *addr) {
   return MY_ERR_CODE;
 }
 
-static int connectServer(HostPort *addr) {
+static int connectServer(const HostPort *addr) {
   int sock, err;
   struct addrinfo hints, *res, *ai;
 

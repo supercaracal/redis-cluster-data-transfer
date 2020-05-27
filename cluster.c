@@ -4,7 +4,7 @@
 
 #define DEFAULT_NODE_SIZE 8
 
-int buildClusterState(Reply *reply, Cluster *cluster) {
+int buildClusterState(const Reply *reply, Cluster *cluster) {
   int i, j, first, last;
 
   cluster->size = DEFAULT_NODE_SIZE;
@@ -51,7 +51,7 @@ int freeClusterState(Cluster *c) {
   return MY_OK_CODE;
 }
 
-void printClusterSlots(Cluster *c) {
+void printClusterSlots(const Cluster *c) {
   int i;
   Conn *conn;
 
