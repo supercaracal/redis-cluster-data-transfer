@@ -65,10 +65,10 @@ static int copyKey(const Conn *src, const Conn *dest, const char *key) {
 
 static int migrateKeys(const Cluster *src, const Cluster *dest) {
   char buf[MAX_CMD_SIZE];
-  int i, j, ret, cnt;
+  int i, j, ret, cnt, copied, failed;
   Reply reply;
 
-  for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) {
+  for (i = failed = copied = 0; i < CLUSTER_SLOT_SIZE; ++i) {
     if (i > 0 && i % 1000 == 0) LOG_PROG(i);
 
     ret = countKeysInSlot(FIND_CONN(src, i), i);
@@ -83,12 +83,14 @@ static int migrateKeys(const Cluster *src, const Cluster *dest) {
 
     for (j = 0; j < reply.i; ++j) {
       ret = copyKey(FIND_CONN(src, i), FIND_CONN(dest, i), reply.lines[j]);
-      if (ret == MY_ERR_CODE) return ret;
+      ret == MY_ERR_CODE ? ++failed : ++copied;
     }
 
     freeReply(&reply);
   }
   LOG_PROG(CLUSTER_SLOT_SIZE);
+  printf("%d keys were copied\n", copied);
+  printf("%d keys were failed\n", failed);
 
   return MY_OK_CODE;
 }
