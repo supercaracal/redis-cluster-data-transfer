@@ -14,21 +14,31 @@ static int key2slot(Cluster *cluster, const char *cmd) {
 
   snprintf(cBuf, MAX_CMD_SIZE, "COMMAND GETKEYS %s", cmd);
   ret = command(cluster->nodes[0], cBuf, &reply);
-  if (ret == MY_ERR_CODE) return ret;
+  if (ret == MY_ERR_CODE) {
+    freeReply(&reply);
+    return ret;
+  }
 
   line = LAST_LINE2(reply);
-  if (line == NULL || strlen(line) == 0) return ANY_NODE_OK; // FIXME: blank is a bug
+  if (line == NULL || strlen(line) == 0) {
+    freeReply(&reply);
+    return ANY_NODE_OK; // FIXME: blank is a bug
+  }
 
   strcpy(kBuf, line);
   freeReply(&reply);
 
   snprintf(cBuf, MAX_CMD_SIZE, "CLUSTER KEYSLOT %s", kBuf);
   ret = command(cluster->nodes[0], cBuf, &reply);
-  if (ret == MY_ERR_CODE) return ret;
+  if (ret == MY_ERR_CODE) {
+    freeReply(&reply);
+    return ret;
+  }
 
   line = LAST_LINE2(reply);
   if (line == NULL) {
     fprintf(stderr, "Could not get slot number of key: %s\n", kBuf);
+    freeReply(&reply);
     return MY_ERR_CODE;
   }
 
@@ -83,7 +93,10 @@ int main(int argc, char **argv) {
     }
 
     trim(buf);
-    if (execute(&cluster, buf, &reply) == MY_ERR_CODE) continue;
+    if (execute(&cluster, buf, &reply) == MY_ERR_CODE) {
+      freeReply(&reply);
+      continue;
+    }
 
     printReplyLines(&reply);
     freeReply(&reply);
