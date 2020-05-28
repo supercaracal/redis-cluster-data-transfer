@@ -107,7 +107,7 @@ int command(const Conn *conn, const char *cmd, Reply *reply) {
 
   if (reply->err) {
     fprintf(stderr, "Tried `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
-    fprintf(stderr, "Error: %s\n", LAST_LINE(reply));
+    fprintf(stderr, "%s\n", LAST_LINE(reply));
     return MY_ERR_CODE;
   }
 

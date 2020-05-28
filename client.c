@@ -6,11 +6,22 @@
 
 #define MAX_KEY_SIZE 256
 #define ANY_NODE_OK -2
+#define EXIT_LOOP -3
+
+static int isKeylessCommand(const char *cmd) {
+  while (*cmd != '\0') {
+    if (*cmd == ' ') return 0;
+    ++cmd;
+  }
+  return 1;
+}
 
 static int key2slot(Cluster *cluster, const char *cmd) {
   char cBuf[MAX_CMD_SIZE], kBuf[MAX_KEY_SIZE], *line;
   int slot, ret;
   Reply reply;
+
+  if (isKeylessCommand(cmd)) return ANY_NODE_OK;
 
   snprintf(cBuf, MAX_CMD_SIZE, "COMMAND GETKEYS %s", cmd);
   ret = command(cluster->nodes[0], cBuf, &reply);
@@ -52,6 +63,9 @@ static int execute(Cluster *cluster, const char *cmd, Reply *reply) {
   int ret;
   Conn *conn;
 
+  if (strcmp(cmd, "quit") == 0) return EXIT_LOOP;
+  if (strcmp(cmd, "exit") == 0) return EXIT_LOOP;
+
   ret = key2slot(cluster, cmd);
   if (ret == MY_ERR_CODE) return ret;
 
@@ -63,18 +77,25 @@ static int execute(Cluster *cluster, const char *cmd, Reply *reply) {
   return MY_OK_CODE;
 }
 
-static inline void trim(char *str) {
-  if (str == NULL) return;
+static char *trim(char *str) {
+  char *head;
+
+  if (str == NULL) return str;
+  while (*str == ' ') ++str;
+  head = str;
   while (*str != '\0') ++str;
   --str;
-  while (*str == '\n' || *str == '\r') --str;
+  while (*str == '\n' || *str == '\r' || *str == ' ') --str;
   *(++str) = '\0';
+
+  return head;
 }
 
 int main(int argc, char **argv) {
-  char buf[MAX_CMD_SIZE];
+  char buf[MAX_CMD_SIZE], *cmd;
   Cluster cluster;
   Reply reply;
+  int ret;
 
   if (argc != 2) {
     fprintf(stderr, "Usage: bin/cli host:port\n");
@@ -92,10 +113,15 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    trim(buf);
-    if (execute(&cluster, buf, &reply) == MY_ERR_CODE) {
+    cmd = trim(buf);
+    ret = execute(&cluster, cmd, &reply);
+    if (ret == MY_ERR_CODE) {
       freeReply(&reply);
       continue;
+    }
+    if (ret == EXIT_LOOP) {
+      freeReply(&reply);
+      break;
     }
 
     printReplyLines(&reply);
