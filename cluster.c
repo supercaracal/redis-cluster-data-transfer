@@ -5,34 +5,7 @@
 
 #define DEFAULT_NODE_SIZE 8
 
-int fetchClusterState(const char *str, Cluster *cluster) {
-  Conn conn;
-  Reply reply;
-  int ret, i;
-
-  ret = createConnectionFromStr(str, &conn);
-  if (ret == MY_ERR_CODE) return ret;
-
-  ret = command(&conn, "CLUSTER SLOTS", &reply);
-  if (ret == MY_ERR_CODE) return ret;
-
-  ret = buildClusterState(&reply, cluster);
-  if (ret == MY_ERR_CODE) return ret;
-
-  for (i = 0; i < cluster->i; ++i) {
-    ret = createConnection(cluster->nodes[i]);
-    if (ret == MY_ERR_CODE) return ret;
-  }
-
-  freeReply(&reply);
-
-  ret = freeConnection(&conn);
-  if (ret == MY_ERR_CODE) return ret;
-
-  return MY_OK_CODE;
-}
-
-int buildClusterState(const Reply *reply, Cluster *cluster) {
+static int buildClusterState(const Reply *reply, Cluster *cluster) {
   int i, j, first, last;
   void *tmp;
 
@@ -66,6 +39,57 @@ int buildClusterState(const Reply *reply, Cluster *cluster) {
 
   if (cluster->i == 0) {
     return MY_ERR_CODE;
+  }
+
+  return MY_OK_CODE;
+}
+
+int fetchClusterState(const char *str, Cluster *cluster) {
+  Conn conn;
+  Reply reply;
+  int ret, i;
+
+  ret = createConnectionFromStr(str, &conn);
+  if (ret == MY_ERR_CODE) return ret;
+
+  ret = command(&conn, "CLUSTER SLOTS", &reply);
+  if (ret == MY_ERR_CODE) return ret;
+
+  ret = buildClusterState(&reply, cluster);
+  if (ret == MY_ERR_CODE) return ret;
+
+  for (i = 0; i < cluster->i; ++i) {
+    ret = createConnection(cluster->nodes[i]);
+    if (ret == MY_ERR_CODE) return ret;
+  }
+
+  freeReply(&reply);
+
+  ret = freeConnection(&conn);
+  if (ret == MY_ERR_CODE) return ret;
+
+  return MY_OK_CODE;
+}
+
+int copyClusterState(const Cluster *src, Cluster *dest) {
+  int i, ret;
+
+  for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) dest->slots[i] = src->slots[i];
+  dest->size = src->i;
+  dest->i = src->i;
+
+  dest->nodes = (Conn **) malloc(sizeof(Conn *) * dest->size);
+  ASSERT_MALLOC(dest->nodes, "for init cluster connections on copy");
+
+  for (i = 0; i < src->i; ++i) {
+    dest->nodes[i] = (Conn *) malloc(sizeof(Conn));
+    ASSERT_MALLOC(dest->nodes[i], "for new cluster connection on copy");
+
+    strcpy(dest->nodes[i]->addr.host, src->nodes[i]->addr.host);
+    strcpy(dest->nodes[i]->addr.port, src->nodes[i]->addr.port);
+
+    ret = createConnection(dest->nodes[i]);
+    if (ret == MY_ERR_CODE) return ret;
   }
 
   return MY_OK_CODE;

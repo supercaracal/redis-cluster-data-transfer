@@ -30,7 +30,6 @@ I need a copy tool.
 so on and so forth
 
 ## TODO
-* multi thread
 * use pipelining
 
 ## Trial
