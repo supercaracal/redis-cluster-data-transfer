@@ -19,7 +19,11 @@ static int countKeysInSlot(const Conn *conn, int slot) {
 
   snprintf(buf, MAX_CMD_SIZE, "CLUSTER COUNTKEYSINSLOT %d", slot);
   ret = command(conn, buf, &reply);
-  if (ret == MY_ERR_CODE) return ret;
+  if (ret == MY_ERR_CODE) {
+    freeReply(&reply);
+    return ret;
+  }
+
   line = LAST_LINE2(reply);
   ret = line == NULL ? 0 : atoi(line);
   freeReply(&reply);
@@ -34,10 +38,8 @@ static int copyKey(const Conn *src, const Conn *dest, const char *key) {
 
   snprintf(buf, MAX_CMD_SIZE, "MIGRATE %s %s %s 0 %d COPY REPLACE", dest->addr.host, dest->addr.port, key, MIGRATE_CMD_TIMEOUT);
   ret = command(src, buf, &reply);
-  if (ret == MY_ERR_CODE) return ret;
   freeReply(&reply);
-
-  return MY_OK_CODE;
+  return ret;
 }
 
 static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
@@ -51,7 +53,10 @@ static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dr
 
   snprintf(buf, MAX_CMD_SIZE, "CLUSTER GETKEYSINSLOT %d %d", slot, ret);
   ret = command(FIND_CONN(src, slot), buf, &reply);
-  if (ret == MY_ERR_CODE) return ret;
+  if (ret == MY_ERR_CODE) {
+    freeReply(&reply);
+    return ret;
+  }
 
   for (i = 0; i < reply.i; ++i) {
     if (dryRun) {
