@@ -71,14 +71,15 @@ int fetchClusterState(const char *str, Cluster *cluster) {
   return MY_OK_CODE;
 }
 
-int copyClusterState(const Cluster *src, Cluster *dest) {
-  int i, ret;
+Cluster *copyClusterState(const Cluster *src) {
+  int i;
+  Cluster *dest;
 
   dest = (Cluster *) malloc(sizeof(Cluster));
   ASSERT_MALLOC(dest, "for init cluster on copy");
 
   for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) dest->slots[i] = src->slots[i];
-  dest->size = src->i;
+  dest->size = src->size;
   dest->i = src->i;
 
   dest->nodes = (Conn **) malloc(sizeof(Conn *) * dest->size);
@@ -91,11 +92,10 @@ int copyClusterState(const Cluster *src, Cluster *dest) {
     strcpy(dest->nodes[i]->addr.host, src->nodes[i]->addr.host);
     strcpy(dest->nodes[i]->addr.port, src->nodes[i]->addr.port);
 
-    ret = createConnection(dest->nodes[i]);
-    if (ret == MY_ERR_CODE) return ret;
+    if (createConnection(dest->nodes[i]) == MY_ERR_CODE) return NULL;
   }
 
-  return MY_OK_CODE;
+  return dest;
 }
 
 int freeClusterState(Cluster *c) {

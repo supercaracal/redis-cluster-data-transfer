@@ -4,7 +4,7 @@
 #include "./generic.h"
 
 int fetchClusterState(const char *, Cluster *);
-int copyClusterState(const Cluster *, Cluster *);
+Cluster *copyClusterState(const Cluster *);
 int freeClusterState(Cluster *);
 void printClusterSlots(const Cluster *);
 void printClusterNodes(const Cluster *);

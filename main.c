@@ -94,8 +94,12 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   pid = getpid();
 
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
-    if (copyClusterState(src, args[i].src) == MY_ERR_CODE) return MY_ERR_CODE;
-    if (copyClusterState(dest, args[i].dest) == MY_ERR_CODE) return MY_ERR_CODE;
+    args[i].src = copyClusterState(src);
+    if (args[i].src == NULL) return MY_ERR_CODE;
+
+    args[i].dest = copyClusterState(dest);
+    if (args[i].dest == NULL) return MY_ERR_CODE;
+
     args[i].firstSlot = i * chunk;
     args[i].lastSlot = i * chunk + chunk - 1;
     args[i].dryRun = dryRun;
@@ -113,7 +117,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     ret = pthread_join(workers[i], &tmp);
     if (ret != 0) {
-      fprintf(stderr, "pthread_join(3): Could not join with thread");
+      fprintf(stderr, "pthread_join(3): Could not join with a thread");
       return MY_ERR_CODE;
     }
 
