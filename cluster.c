@@ -74,6 +74,9 @@ int fetchClusterState(const char *str, Cluster *cluster) {
 int copyClusterState(const Cluster *src, Cluster *dest) {
   int i, ret;
 
+  dest = (Cluster *) malloc(sizeof(Cluster));
+  ASSERT_MALLOC(dest, "for init cluster on copy");
+
   for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) dest->slots[i] = src->slots[i];
   dest->size = src->i;
   dest->i = src->i;

@@ -132,6 +132,8 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     if (freeClusterState(args[i].src) == MY_ERR_CODE) return MY_ERR_CODE;
     if (freeClusterState(args[i].dest) == MY_ERR_CODE) return MY_ERR_CODE;
+    free(args[i].src);
+    free(args[i].dest);
   }
 
   return MY_OK_CODE;
