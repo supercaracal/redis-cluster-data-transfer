@@ -10,7 +10,7 @@
 #define MAX_CONCURRENCY 16
 
 typedef struct { int copied, failed, found; } MigrationResult;
-typedef struct { Cluster *src, *dest; int firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
+typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
 
 static int countKeysInSlot(const Conn *conn, int slot) {
   char buf[MAX_CMD_SIZE], *line;
@@ -77,7 +77,7 @@ static void *workOnATask(void *args) {
   int i;
 
   p = (WorkerArgs *) args;
-  printf("%lu <%lu>: %05d - %05d\n", (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
+  printf("%02d: %lu <%lu>: %05d - %05d\n", p->i, (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
   for (i = p->firstSlot; i <= p->lastSlot; ++i) migrateKeys(p->src, p->dest, i, p->dryRun, p->result);
   pthread_exit((void *) p->result);
 }
@@ -104,6 +104,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
     args[i].dest = copyClusterState(dest);
     if (args[i].dest == NULL) return MY_ERR_CODE;
 
+    args[i].i = i + 1;
     args[i].firstSlot = i * chunk;
     args[i].lastSlot = i * chunk + chunk - 1;
     args[i].dryRun = dryRun;
