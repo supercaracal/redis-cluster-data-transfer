@@ -68,17 +68,17 @@ static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dr
 }
 
 static void *workOnATask(void *args) {
-  int i;
   WorkerArgs *p;
+  int i;
 
   p = (WorkerArgs *) args;
+  printf("%lu <%lu>: %05d - %05d\n", (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
   for (i = p->firstSlot; i <= p->lastSlot; ++i) migrateKeys(p->src, p->dest, i, p->dryRun, p->result);
   pthread_exit((void *) p->result);
 }
 
 static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRun) {
   int i, ret, chunk;
-  pid_t pid;
   void *tmp;
   pthread_t workers[MAX_CONCURRENCY];
   WorkerArgs args[MAX_CONCURRENCY];
@@ -91,7 +91,6 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
 
   chunk = CLUSTER_SLOT_SIZE / MAX_CONCURRENCY;
   sum.found = sum.copied = sum.failed = 0;
-  pid = getpid();
 
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     args[i].src = copyClusterState(src);
@@ -110,8 +109,6 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
       fprintf(stderr, "pthread_create(3): Could not create a worker");
       return MY_ERR_CODE;
     }
-
-    printf("%lu <%lu>: %05d - %05d\n", (unsigned long) pid, (unsigned long) workers[i], args[i].firstSlot, args[i].lastSlot);
   }
 
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
