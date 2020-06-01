@@ -13,7 +13,7 @@
 typedef struct { int copied, failed, found; } MigrationResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
 
-static int countKeysInSlot(const Conn *conn, int slot) {
+static int countKeysInSlot(Conn *conn, int slot) {
   char buf[MAX_CMD_SIZE], *line;
   int ret;
   Reply reply;
@@ -32,7 +32,7 @@ static int countKeysInSlot(const Conn *conn, int slot) {
   return ret;
 }
 
-static int copyKey(const Conn *src, const Conn *dest, const char *key) {
+static int copyKey(Conn *src, const Conn *dest, const char *key) {
   char buf[MAX_CMD_SIZE];
   int ret;
   Reply reply;

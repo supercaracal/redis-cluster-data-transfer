@@ -1,5 +1,6 @@
 #include <string.h>
 #include "./command.h"
+#include "./net.h"
 
 #define DEFAULT_REPLY_LINES 16
 #define DEFAULT_REPLY_SIZE 256
@@ -43,7 +44,7 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   return realLen;
 }
 
-int command(const Conn *conn, const char *cmd, Reply *reply) {
+int command(Conn *conn, const char *cmd, Reply *reply) {
   int i, size, readSize;
   char *buf;
 
@@ -69,7 +70,8 @@ int command(const Conn *conn, const char *cmd, Reply *reply) {
     if (fgets(buf, size + 3, conn->fr) == NULL) { // \r \n \0
       free(buf);
       fprintf(stderr, "fgets(3): returns NULL when execute `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
-      return MY_ERR_CODE;
+      reconnect(conn);
+      return command(conn, cmd, reply);
     }
     // @see https://redis.io/topics/protocol Redis Protocol specification
     switch (buf[0]) {

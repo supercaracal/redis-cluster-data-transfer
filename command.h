@@ -3,7 +3,7 @@
 
 #include "./generic.h"
 
-int command(const Conn *, const char *, Reply *);
+int command(Conn *, const char *, Reply *);
 void freeReply(Reply *);
 void printReplyLines(const Reply *);
 
