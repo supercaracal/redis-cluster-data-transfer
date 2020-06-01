@@ -26,8 +26,10 @@ static int key2slot(Cluster *cluster, const char *cmd) {
   snprintf(cBuf, MAX_CMD_SIZE, "COMMAND GETKEYS %s", cmd);
   ret = command(cluster->nodes[0], cBuf, &reply);
   if (ret == MY_ERR_CODE) {
+    line = LAST_LINE2(reply) == NULL ? "" : LAST_LINE2(reply);
+    ret = strncmp(line, "ERR The command has no key arguments", 36);
     freeReply(&reply);
-    return ret;
+    return ret == 0 ? ANY_NODE_OK : MY_ERR_CODE;
   }
 
   line = LAST_LINE2(reply);
