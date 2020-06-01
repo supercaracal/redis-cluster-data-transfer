@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include "./generic.h"
 #include "./net.h"
 #include "./command.h"
@@ -149,6 +150,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
 int main(int argc, char **argv) {
   int ret, dryRun;
   Cluster src, dest;
+  struct sigaction sa;
 
   if (argc < 3 || argc > 4) {
     fprintf(stderr, "Usage: bin/exe src-host:port dest-host:port [-C]\n");
@@ -157,6 +159,14 @@ int main(int argc, char **argv) {
   }
 
   dryRun = argc == 4 ? 1 : 0;
+
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sa.sa_handler = SIG_IGN;
+  if (sigaction(SIGPIPE, &sa, NULL) < 0) {
+    fprintf(stderr, "sigaction(2): SIGPIPE failed");
+    exit(1);
+  }
 
   ret = fetchClusterState(argv[1], &src);
   ASSERT(ret);
