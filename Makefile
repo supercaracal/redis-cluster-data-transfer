@@ -1,7 +1,11 @@
-CC := gcc
-CFLAGS += -Wall
+CC   := gcc
 SRCS := command net cluster
 OBJS := $(addsuffix .o,$(SRCS))
+
+CFLAGS += -Wall
+
+CONCURRENCY ?= 8
+TIMEOUT_SEC ?= 5
 
 define link
 	@mkdir -p bin
@@ -11,6 +15,8 @@ endef
 build: bin/exe bin/cli
 
 bin/exe: CFLAGS += -O2
+bin/exe: CPPFLAGS += -DMAX_CONCURRENCY=$(CONCURRENCY)
+bin/exe: CPPFLAGS += -DMAX_TIMEOUT_SEC=$(TIMEOUT_SEC)
 bin/exe: LDLIBS += -lpthread
 bin/exe: main.o $(OBJS)
 	$(call link)
