@@ -1,4 +1,4 @@
-CC ?= gcc
+CC := gcc
 CFLAGS += -Wall
 SRCS := command net cluster
 OBJS := $(addsuffix .o,$(SRCS))
