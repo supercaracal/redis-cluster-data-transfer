@@ -37,7 +37,7 @@ static int copyKey(Conn *src, const Conn *dest, const char *key) {
   int ret;
   Reply reply;
 
-  snprintf(buf, MAX_CMD_SIZE, "MIGRATE %s %s %s 0 %d COPY", dest->addr.host, dest->addr.port, key, MIGRATE_CMD_TIMEOUT);
+  snprintf(buf, MAX_CMD_SIZE, "MIGRATE %s %s %s 0 %d COPY REPLACE", dest->addr.host, dest->addr.port, key, MIGRATE_CMD_TIMEOUT);
   ret = command(src, buf, &reply);
   freeReply(&reply);
   return ret;
