@@ -114,14 +114,14 @@ int freeConnection(Conn *c) {
   fflush(c->fr);
 
   if (fclose(c->fw) == EOF) {
-    perror("fclose(3): for write");
+    // perror("fclose(3): for write");
     // return MY_ERR_CODE;
   };
   c->fw = NULL;
 
   // FIXME: The socket is shared between write and read. So it is already bad descriptor.
   if (fclose(c->fr) == EOF) {
-    perror("fclose(3): for read");
+    // perror("fclose(3): for read");
     // return MY_ERR_CODE;
   }
   c->fr = NULL;
