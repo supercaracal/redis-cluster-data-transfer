@@ -71,6 +71,7 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
       free(buf);
       freeReply(reply);
       fprintf(stderr, "fgets(3): returns NULL when execute `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
+      fprintf(stderr, "Reconnect to %s:%s for retrying `%s`\n", conn->addr.host, conn->addr.port, cmd);
       return reconnect(conn) == MY_OK_CODE ? command(conn, cmd, reply) : MY_ERR_CODE;
     }
     // @see https://redis.io/topics/protocol Redis Protocol specification
