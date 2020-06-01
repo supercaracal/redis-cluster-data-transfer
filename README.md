@@ -29,9 +29,6 @@ I need a copy tool.
 
 so on and so forth
 
-## TODO
-* use pipelining
-
 ## Trial
 
 ```

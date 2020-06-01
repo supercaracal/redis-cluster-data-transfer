@@ -1,4 +1,4 @@
-CC := gcc
+CC ?= gcc
 CFLAGS += -Wall
 SRCS := command net cluster
 OBJS := $(addsuffix .o,$(SRCS))
@@ -23,6 +23,8 @@ debug: bin/dexe bin/dcli
 
 bin/dexe: CFLAGS += -g
 bin/dexe: CPPFLAGS += -DDEBUG
+bin/dexe: CPPFLAGS += -DMAX_CONCURRENCY=1
+bin/dexe: CPPFLAGS += -DMAX_TIMEOUT_SEC=300
 bin/dexe: LDLIBS += -lpthread
 bin/dexe: main.o $(OBJS)
 	$(call link)

@@ -5,7 +5,9 @@
 #include <unistd.h>
 #include "./net.h"
 
+#ifndef MAX_TIMEOUT_SEC
 #define MAX_TIMEOUT_SEC 5
+#endif // MAX_TIMEOUT_SEC
 
 static int parseAddress(const char *str, HostPort *addr) {
   int len, i, j;
@@ -111,8 +113,6 @@ int reconnect(Conn *c) {
 
 int freeConnection(Conn *c) {
   fflush(c->fw);
-  fflush(c->fr);
-
   if (fclose(c->fw) == EOF) {
     // perror("fclose(3): for write");
     // return MY_ERR_CODE;

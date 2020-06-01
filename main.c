@@ -2,16 +2,24 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string.h>
 #include "./generic.h"
 #include "./net.h"
 #include "./command.h"
 #include "./cluster.h"
 
 #define MIGRATE_CMD_TIMEOUT 30000
+
+#ifndef MAX_CONCURRENCY
 #define MAX_CONCURRENCY 16
+#endif // MAX_CONCURRENCY
+
+#define MAX_MIGRATE_CMD_SIZE 2000
+#define PIPELINING_SIZE 10
 
 typedef struct { int copied, failed, found; } MigrationResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
+typedef struct { char buf[MAX_MIGRATE_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
 
 static int countKeysInSlot(Conn *conn, int slot) {
   char buf[MAX_CMD_SIZE], *line;
@@ -32,20 +40,21 @@ static int countKeysInSlot(Conn *conn, int slot) {
   return ret;
 }
 
-static int copyKey(Conn *src, const Conn *dest, const char *key) {
-  char buf[MAX_CMD_SIZE];
-  int ret;
+static void copyKeys(Conn *c, Pipeline *pipe, MigrationResult *result) {
+  int i;
   Reply reply;
 
-  snprintf(buf, MAX_CMD_SIZE, "MIGRATE %s %s %s 0 %d COPY REPLACE", dest->addr.host, dest->addr.port, key, MIGRATE_CMD_TIMEOUT);
-  ret = command(src, buf, &reply);
+  pipe->buf[pipe->i] = '\0';
+  pipeline(c, pipe->buf, &reply, pipe->cnt);
+  for (i = 0; i < reply.i; ++i) strncmp(reply.lines[i], "OK", 2) == 0 ? result->copied++ : result->failed++;
+  pipe->cnt = pipe->i = 0;
   freeReply(&reply);
-  return ret;
 }
 
 static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
   char buf[MAX_CMD_SIZE];
   int i, ret;
+  Pipeline pipe;
   Reply reply;
 
   ret = countKeysInSlot(FIND_CONN(src, slot), slot);
@@ -59,17 +68,20 @@ static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dr
     return ret;
   }
 
-  for (i = 0; i < reply.i; ++i) {
+  for (i = pipe.i = pipe.cnt = 0; i < reply.i; ++i) {
     if (dryRun) {
       result->found++;
       continue;
     }
-    ret = copyKey(FIND_CONN(src, slot), FIND_CONN(dest, slot), reply.lines[i]);
-    ret == MY_ERR_CODE ? result->failed++ : result->copied++;
+    pipe.i += snprintf(&pipe.buf[pipe.i], MAX_MIGRATE_CMD_SIZE,
+        "MIGRATE %s %s %s 0 %d COPY REPLACE\r\n",
+        FIND_CONN(dest, slot)->addr.host, FIND_CONN(dest, slot)->addr.port, reply.lines[i], MIGRATE_CMD_TIMEOUT);
+    pipe.cnt++;
+    if ((i + 1) % PIPELINING_SIZE == 0) copyKeys(FIND_CONN(src, slot), &pipe, result);
   }
+  if (!dryRun && reply.i % PIPELINING_SIZE != 0) copyKeys(FIND_CONN(src, slot), &pipe, result);
 
   freeReply(&reply);
-
   return MY_OK_CODE;
 }
 

@@ -4,6 +4,7 @@
 #include "./generic.h"
 
 int command(Conn *, const char *, Reply *);
+int pipeline(Conn *, const char *, Reply *, int n);
 void freeReply(Reply *);
 void printReplyLines(const Reply *);
 
