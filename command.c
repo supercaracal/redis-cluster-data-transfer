@@ -69,9 +69,9 @@ int command(Conn *conn, const char *cmd, Reply *reply) {
     ASSERT_MALLOC(buf, "for reading reply buffer");
     if (fgets(buf, size + 3, conn->fr) == NULL) { // \r \n \0
       free(buf);
+      freeReply(reply);
       fprintf(stderr, "fgets(3): returns NULL when execute `%s` to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
-      reconnect(conn);
-      return command(conn, cmd, reply);
+      return reconnect(conn) == MY_OK_CODE ? command(conn, cmd, reply) : MY_ERR_CODE;
     }
     // @see https://redis.io/topics/protocol Redis Protocol specification
     switch (buf[0]) {
