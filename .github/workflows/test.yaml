@@ -21,3 +21,7 @@ jobs:
         uses: actions/checkout@v1
       - name: Make
         run: make
+      - name: Make clean
+        run: make clean
+      - name: Make debug
+        run: make debug
