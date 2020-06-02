@@ -16,7 +16,7 @@ I need a copy tool.
 * [CLUSTER SLOTS](https://redis.io/commands/cluster-slots)
   * For mapping nodes and slots
 * [CLUSTER COUNTKEYSINSLOT](https://redis.io/commands/cluster-countkeysinslot)
-  * For counting keys each slot
+  * For counting keys in a slot
 * [CLUSTER GETKEYSINSLOT](https://redis.io/commands/cluster-getkeysinslot)
   * For listing keys in a slot
 * [MIGRATE](https://redis.io/commands/migrate)
