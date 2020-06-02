@@ -43,12 +43,12 @@ static int countKeysInSlot(Conn *conn, int slot) {
   return ret;
 }
 
-static void copyKeys(Conn *c, Pipeline *pipe, MigrationResult *result) {
+static void copyKeys(Conn *c, Pipeline *pip, MigrationResult *result) {
   int i;
   Reply reply;
 
-  pipe->buf[pipe->i] = '\0';
-  pipeline(c, pipe->buf, &reply, pipe->cnt);
+  pip->buf[pip->i] = '\0';
+  pipeline(c, pip->buf, &reply, pip->cnt);
   for (i = 0; i < reply.i; ++i) {
     if (strncmp(reply.lines[i], "OK", 2) == 0) {
       result->copied++;
@@ -58,14 +58,14 @@ static void copyKeys(Conn *c, Pipeline *pipe, MigrationResult *result) {
       result->failed++;
     }
   }
-  pipe->cnt = pipe->i = 0;
+  pip->cnt = pip->i = 0;
   freeReply(&reply);
 }
 
 static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
   char buf[MAX_CMD_SIZE];
   int i, ret;
-  Pipeline pipe;
+  Pipeline pip;
   Reply reply;
 
   ret = countKeysInSlot(FIND_CONN(src, slot), slot);
@@ -79,18 +79,18 @@ static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dr
     return ret;
   }
 
-  for (i = pipe.i = pipe.cnt = 0; i < reply.i; ++i) {
+  for (i = pip.i = pip.cnt = 0; i < reply.i; ++i) {
     if (dryRun) {
       result->found++;
       continue;
     }
-    pipe.i += snprintf(&pipe.buf[pipe.i], MAX_MIGRATE_CMD_SIZE,
+    pip.i += snprintf(&pip.buf[pip.i], MAX_MIGRATE_CMD_SIZE,
         "MIGRATE %s %s %s 0 %d COPY REPLACE\r\n",
         FIND_CONN(dest, slot)->addr.host, FIND_CONN(dest, slot)->addr.port, reply.lines[i], MIGRATE_CMD_TIMEOUT);
-    pipe.cnt++;
-    if ((i + 1) % PIPELINING_SIZE == 0) copyKeys(FIND_CONN(src, slot), &pipe, result);
+    pip.cnt++;
+    if ((i + 1) % PIPELINING_SIZE == 0) copyKeys(FIND_CONN(src, slot), &pip, result);
   }
-  if (!dryRun && reply.i % PIPELINING_SIZE != 0) copyKeys(FIND_CONN(src, slot), &pipe, result);
+  if (!dryRun && reply.i % PIPELINING_SIZE != 0) copyKeys(FIND_CONN(src, slot), &pip, result);
 
   freeReply(&reply);
   return MY_OK_CODE;
