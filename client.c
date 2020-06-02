@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
   printClusterNodes(&cluster);
 
   while (1) {
-    printf("cli > ");
+    printf("cli> ");
 
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
       fprintf(stderr, "fgets(3)\n");

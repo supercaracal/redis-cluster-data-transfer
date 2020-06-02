@@ -32,9 +32,39 @@ so on and so forth
 ## Trial
 
 ```
-$ docker-compose up -d
+$ git clone https://github.com/supercaracal/redis-cluster-data-transfer.git
+$ cd redis-cluster-data-transfer/
 $ make
+$ docker-compose up -d
+$ bin/cli 127.0.0.1:16371
+cli> set key1 1
+OK
+cli> set key2 1
+OK
+cli> set key3 1
+OK
+cli> quit
 $ bin/exe 127.0.0.1:16371 127.0.0.1:16381
+01: 11654 <140098610599680>: 00000 - 02047
+02: 11654 <140098602206976>: 02048 - 04095
+07: 11654 <140098560243456>: 12288 - 14335
+05: 11654 <140098577028864>: 08192 - 10239
+03: 11654 <140098593814272>: 04096 - 06143
+08: 11654 <140098477750016>: 14336 - 16383
+04: 11654 <140098585421568>: 06144 - 08191
+06: 11654 <140098568636160>: 10240 - 12287
+3 keys were copied
+0 keys were skipped
+0 keys were failed
+$ bin/cli 127.0.0.1:16381
+cli> get key1
+1
+cli> get key2
+1
+cli> get key3
+1
+cli> quit
+$
 ```
 
 ## Dry run
