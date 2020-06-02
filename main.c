@@ -11,11 +11,14 @@
 #define MIGRATE_CMD_TIMEOUT 30000
 
 #ifndef MAX_CONCURRENCY
-#define MAX_CONCURRENCY 16
+#define MAX_CONCURRENCY 4
 #endif // MAX_CONCURRENCY
 
 #define MAX_MIGRATE_CMD_SIZE 2000
+
+#ifndef PIPELINING_SIZE
 #define PIPELINING_SIZE 10
+#endif // PIPELINING_SIZE
 
 typedef struct { int copied, failed, found; } MigrationResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
