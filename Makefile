@@ -4,9 +4,9 @@ OBJS := $(addsuffix .o,$(SRCS))
 
 CFLAGS += -Wall
 
-WORKER   ?= 4
-TIMEOUT  ?= 5
-PIPELINE ?= 10
+WORKER   ?= 8
+TIMEOUT  ?= 30
+PIPELINE ?= 100
 
 define link
 	@mkdir -p bin

@@ -20,7 +20,7 @@
 #define PIPELINING_SIZE 10
 #endif // PIPELINING_SIZE
 
-typedef struct { int copied, failed, found; } MigrationResult;
+typedef struct { int copied, skipped, failed, found; } MigrationResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
 typedef struct { char buf[MAX_MIGRATE_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
 
@@ -49,7 +49,15 @@ static void copyKeys(Conn *c, Pipeline *pipe, MigrationResult *result) {
 
   pipe->buf[pipe->i] = '\0';
   pipeline(c, pipe->buf, &reply, pipe->cnt);
-  for (i = 0; i < reply.i; ++i) strncmp(reply.lines[i], "OK", 2) == 0 ? result->copied++ : result->failed++;
+  for (i = 0; i < reply.i; ++i) {
+    if (strncmp(reply.lines[i], "OK", 2) == 0) {
+      result->copied++;
+    } else if (strncmp(reply.lines[i], "NOKEY", 5) == 0) {
+      result->skipped++;
+    } else {
+      result->failed++;
+    }
+  }
   pipe->cnt = pipe->i = 0;
   freeReply(&reply);
 }
@@ -94,6 +102,7 @@ static void *workOnATask(void *args) {
 
   p = (WorkerArgs *) args;
   printf("%02d: %lu <%lu>: %05d - %05d\n", p->i, (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
+  p->result->found = p->result->copied = p->result->skipped = p->result->failed = 0;
   for (i = p->firstSlot; i <= p->lastSlot; ++i) migrateKeys(p->src, p->dest, i, p->dryRun, p->result);
   pthread_exit((void *) p->result);
 }
@@ -111,7 +120,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   }
 
   chunk = CLUSTER_SLOT_SIZE / MAX_CONCURRENCY;
-  sum.found = sum.copied = sum.failed = 0;
+  sum.found = sum.copied = sum.skipped = sum.failed = 0;
 
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     args[i].src = copyClusterState(src);
@@ -142,6 +151,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
 
     sum.found += results[i].found;
     sum.copied += results[i].copied;
+    sum.skipped += results[i].skipped;
     sum.failed += results[i].failed;
   }
 
@@ -149,6 +159,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
     printf("%d keys were found\n", sum.found);
   } else {
     printf("%d keys were copied\n", sum.copied);
+    printf("%d keys were skipped\n", sum.skipped);
     printf("%d keys were failed\n", sum.failed);
   }
 
