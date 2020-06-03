@@ -77,7 +77,8 @@ $ bin/exe 127.0.0.1:16371 127.0.0.1:16381 -C
 It takes approximately 50 minutes while 12 million keys are copied.
 
 ## See also
-* [alibaba/RedisShake](https://github.com/alibaba/RedisShake)
-* [frsyuki/embulk-plugin-redis](https://github.com/frsyuki/embulk-plugin-redis)
 * [Netflix/dynomite](https://github.com/Netflix/dynomite)
 * [sripathikrishnan/redis-rdb-tools](https://github.com/sripathikrishnan/redis-rdb-tools)
+* [alibaba/RedisShake](https://github.com/alibaba/RedisShake)
+* [vipshop/redis-migrate-tool](https://github.com/vipshop/redis-migrate-tool)
+* [frsyuki/embulk-plugin-redis](https://github.com/frsyuki/embulk-plugin-redis)
