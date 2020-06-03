@@ -73,6 +73,9 @@ $
 $ bin/exe 127.0.0.1:16371 127.0.0.1:16381 -C
 ```
 
+## Performance
+It takes approximately 50 minutes while 12 million keys are copied.
+
 ## See also
 * [alibaba/RedisShake](https://github.com/alibaba/RedisShake)
 * [frsyuki/embulk-plugin-redis](https://github.com/frsyuki/embulk-plugin-redis)
