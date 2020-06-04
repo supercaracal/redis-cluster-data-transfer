@@ -13,7 +13,7 @@ define link
 	$(strip $(LINK.o)) $^ $(LOADLIBES) $(LDLIBS) -o $@
 endef
 
-build: bin/exe bin/cli
+build: bin/exe bin/cli bin/setter bin/getter
 
 bin/exe: CFLAGS += -O2
 bin/exe: CPPFLAGS += -DMAX_CONCURRENCY=$(WORKER)
@@ -25,6 +25,14 @@ bin/exe: main.o $(OBJS)
 
 bin/cli: CFLAGS += -O2
 bin/cli: client.o $(OBJS)
+	$(call link)
+
+bin/setter: CFLAGS += -O2
+bin/setter: setter.o $(OBJS)
+	$(call link)
+
+bin/getter: CFLAGS += -O2
+bin/getter: getter.o $(OBJS)
 	$(call link)
 
 debug: bin/dexe bin/dcli
