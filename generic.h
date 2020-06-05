@@ -6,9 +6,11 @@
 
 #define MY_OK_CODE 0
 #define MY_ERR_CODE -1
+#define ANY_NODE_OK -2
 #define MAX_HOST_SIZE 256
 #define MAX_PORT_SIZE 8
 #define MAX_CMD_SIZE 4096
+#define MAX_KEY_SIZE 256
 #define CLUSTER_SLOT_SIZE 16384
 
 #define ASSERT(ret) do {\
@@ -32,6 +34,7 @@
 #define LAST_LINE(r) (r->i > 0 ? r->lines[r->i - 1] : NULL)
 #define LAST_LINE2(r) (r.i > 0 ? r.lines[r.i - 1] : NULL)
 #define FIND_CONN(c, i) (c->nodes[c->slots[i]])
+#define FIND_CONN2(c, i) (c.nodes[c.slots[i]])
 
 typedef struct { char host[MAX_HOST_SIZE], port[MAX_PORT_SIZE]; } HostPort;
 typedef struct { FILE *fw, *fr; HostPort addr; } Conn;

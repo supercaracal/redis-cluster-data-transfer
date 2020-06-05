@@ -152,3 +152,11 @@ void printReplyLines(const Reply *reply) {
 
   for (i = 0; i < reply->i; ++i) fprintf(stdout, "%s\n", reply->lines[i]);
 }
+
+int isKeylessCommand(const char *cmd) {
+  while (*cmd != '\0') {
+    if (*cmd == ' ') return 0;
+    ++cmd;
+  }
+  return 1;
+}

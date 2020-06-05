@@ -4,62 +4,7 @@
 #include "./command.h"
 #include "./cluster.h"
 
-#define MAX_KEY_SIZE 256
-#define ANY_NODE_OK -2
 #define EXIT_LOOP -3
-
-static int isKeylessCommand(const char *cmd) {
-  while (*cmd != '\0') {
-    if (*cmd == ' ') return 0;
-    ++cmd;
-  }
-  return 1;
-}
-
-static int key2slot(Cluster *cluster, const char *cmd) {
-  char cBuf[MAX_CMD_SIZE], kBuf[MAX_KEY_SIZE], *line;
-  int slot, ret;
-  Reply reply;
-
-  if (isKeylessCommand(cmd)) return ANY_NODE_OK;
-
-  snprintf(cBuf, MAX_CMD_SIZE, "COMMAND GETKEYS %s", cmd);
-  ret = command(cluster->nodes[0], cBuf, &reply);
-  if (ret == MY_ERR_CODE) {
-    line = LAST_LINE2(reply) == NULL ? "" : LAST_LINE2(reply);
-    ret = strncmp(line, "ERR The command has no key arguments", 36);
-    freeReply(&reply);
-    return ret == 0 ? ANY_NODE_OK : MY_ERR_CODE;
-  }
-
-  line = LAST_LINE2(reply);
-  if (line == NULL || strlen(line) == 0) {
-    freeReply(&reply);
-    return ANY_NODE_OK; // FIXME: blank is a bug
-  }
-
-  strcpy(kBuf, line);
-  freeReply(&reply);
-
-  snprintf(cBuf, MAX_CMD_SIZE, "CLUSTER KEYSLOT %s", kBuf);
-  ret = command(cluster->nodes[0], cBuf, &reply);
-  if (ret == MY_ERR_CODE) {
-    freeReply(&reply);
-    return ret;
-  }
-
-  line = LAST_LINE2(reply);
-  if (line == NULL) {
-    fprintf(stderr, "Could not get slot number of key: %s\n", kBuf);
-    freeReply(&reply);
-    return MY_ERR_CODE;
-  }
-
-  slot = atoi(line);
-  freeReply(&reply);
-
-  return slot;
-}
 
 static int execute(Cluster *cluster, const char *cmd, Reply *reply) {
   int ret;
