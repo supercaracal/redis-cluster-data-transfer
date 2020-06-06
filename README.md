@@ -21,6 +21,7 @@ I need a copy tool.
   * For listing keys in a slot
 * [MIGRATE](https://redis.io/commands/migrate)
   * For copying a key from source to destination
+  * Blocking occurs
 
 ## Not supported
 * AUTH
