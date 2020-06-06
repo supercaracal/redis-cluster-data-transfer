@@ -2,7 +2,8 @@ CC   := gcc
 SRCS := command net cluster
 OBJS := $(addsuffix .o,$(SRCS))
 
-CFLAGS += -Wall
+CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
+CFLAGS += -Wall -Wextra -Wpedantic
 
 WORKER   ?= 8
 TIMEOUT  ?= 30
