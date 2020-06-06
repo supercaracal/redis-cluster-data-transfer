@@ -8,13 +8,9 @@
 #include "./command.h"
 #include "./cluster.h"
 
-#define MIGRATE_CMD_TIMEOUT 30000
-
 #ifndef MAX_CONCURRENCY
 #define MAX_CONCURRENCY 4
 #endif // MAX_CONCURRENCY
-
-#define MAX_MIGRATE_CMD_SIZE 2000
 
 #ifndef PIPELINING_SIZE
 #define PIPELINING_SIZE 10
@@ -22,55 +18,89 @@
 
 typedef struct { int copied, skipped, failed, found; } MigrationResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
-typedef struct { char buf[MAX_MIGRATE_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
+typedef struct { char buf[MAX_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
 
-static int countKeysInSlot(Conn *conn, int slot) {
-  char buf[MAX_CMD_SIZE], *line;
-  int ret;
-  Reply reply;
+#define ASSERT_MIGRATION_DATA(n, m) do {\
+  if (n != m) {\
+    fprintf(stderr, "RESTORE: keys and dump values are mismatched\n");\
+    exit(1);\
+  }\
+} while (0)
 
-  snprintf(buf, MAX_CMD_SIZE, "CLUSTER COUNTKEYSINSLOT %d", slot);
-  ret = command(conn, buf, &reply);
-  if (ret == MY_ERR_CODE) {
-    freeReply(&reply);
-    return ret;
-  }
-
-  line = LAST_LINE2(reply);
-  ret = line == NULL ? 0 : atoi(line);
-  freeReply(&reply);
-
-  return ret;
-}
-
-static void copyKeys(Conn *c, Pipeline *pip, MigrationResult *result) {
+static void countRestoreResult(const Reply *reply, MigrationResult *result) {
   int i;
-  Reply reply;
 
-  pip->buf[pip->i] = '\0';
-  pipeline(c, pip->buf, &reply, pip->cnt);
-  for (i = 0; i < reply.i; ++i) {
-    if (strncmp(reply.lines[i], "OK", 2) == 0) {
+  for (i = 0; i < reply->i; ++i) {
+    if (strncmp(reply->lines[i], "OK", 2) == 0) {
       result->copied++;
-    } else if (strncmp(reply.lines[i], "NOKEY", 5) == 0) {
-      result->skipped++;
     } else {
       result->failed++;
     }
   }
-  pip->cnt = pip->i = 0;
-  freeReply(&reply);
+}
+
+static void transferKeys(Conn *c, const Reply *keys, const Reply *values, MigrationResult *result) {
+  Pipeline pip;
+  Reply reply;
+  int i, ret;
+
+  ASSERT_MIGRATION_DATA(keys->i, values->i);
+
+  for (i = 0; i < keys->i; ++i) {
+    if (values->types[i] == NIL) {
+      result->skipped++;
+      continue;
+    }
+
+    pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2 + values->sizes[i],
+        "RESTORE %s 0 \"%s\" REPLACE\r\n", keys->lines[i], values->lines[i]);
+    pip.cnt++;
+    if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
+
+    pip.buf[pip.i] = '\0';
+    ret = pipeline(c, pip.buf, &reply, pip.cnt);
+    if (ret == MY_ERR_CODE) {
+      result->failed += pip.cnt;
+    } else {
+      countRestoreResult(&reply, result);
+    }
+    pip.cnt = pip.i = 0;
+    freeReply(&reply);
+  }
+}
+
+static void copyKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *result) {
+  Pipeline pip;
+  Reply reply;
+  int i, ret;
+
+  for (i = pip.i = pip.cnt = 0; i < keys->i; ++i) {
+    pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2, "DUMP %s\r\n", keys->lines[i]);
+    pip.cnt++;
+    if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
+
+    pip.buf[pip.i] = '\0';
+    ret = pipeline(src, pip.buf, &reply, pip.cnt);
+    if (ret == MY_ERR_CODE) {
+      result->failed += pip.cnt;
+    } else {
+      transferKeys(dest, keys, &reply, result);
+    }
+    pip.cnt = pip.i = 0;
+    freeReply(&reply);
+  }
 }
 
 static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
   char buf[MAX_CMD_SIZE];
-  int i, ret;
-  Pipeline pip;
+  int ret;
   Reply reply;
 
   ret = countKeysInSlot(FIND_CONN(src, slot), slot);
   if (ret == MY_ERR_CODE) return ret;
   if (ret == 0) return MY_OK_CODE;
+  result->found += ret;
+  if (dryRun) return MY_OK_CODE;
 
   snprintf(buf, MAX_CMD_SIZE, "CLUSTER GETKEYSINSLOT %d %d", slot, ret);
   ret = command(FIND_CONN(src, slot), buf, &reply);
@@ -78,21 +108,9 @@ static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dr
     freeReply(&reply);
     return ret;
   }
-
-  for (i = pip.i = pip.cnt = 0; i < reply.i; ++i) {
-    if (dryRun) {
-      result->found++;
-      continue;
-    }
-    pip.i += snprintf(&pip.buf[pip.i], MAX_MIGRATE_CMD_SIZE,
-        "MIGRATE %s %s %s 0 %d COPY REPLACE\r\n",
-        FIND_CONN(dest, slot)->addr.host, FIND_CONN(dest, slot)->addr.port, reply.lines[i], MIGRATE_CMD_TIMEOUT);
-    pip.cnt++;
-    if ((i + 1) % PIPELINING_SIZE == 0) copyKeys(FIND_CONN(src, slot), &pip, result);
-  }
-  if (!dryRun && reply.i % PIPELINING_SIZE != 0) copyKeys(FIND_CONN(src, slot), &pip, result);
-
+  copyKeys(FIND_CONN(src, slot), FIND_CONN(dest, slot), &reply, result);
   freeReply(&reply);
+
   return MY_OK_CODE;
 }
 
@@ -155,13 +173,10 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
     sum.failed += results[i].failed;
   }
 
-  if (dryRun) {
-    printf("%d keys were found\n", sum.found);
-  } else {
-    printf("%d keys were copied\n", sum.copied);
-    printf("%d keys were skipped\n", sum.skipped);
-    printf("%d keys were failed\n", sum.failed);
-  }
+  printf("%d keys were found\n", sum.found);
+  printf("%d keys were copied\n", sum.copied);
+  printf("%d keys were skipped\n", sum.skipped);
+  printf("%d keys were failed\n", sum.failed);
 
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     if (freeClusterState(args[i].src) == MY_ERR_CODE) return MY_ERR_CODE;

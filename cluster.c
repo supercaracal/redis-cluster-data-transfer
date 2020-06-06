@@ -173,3 +173,22 @@ int key2slot(const Cluster *cluster, const char *cmd) {
 
   return slot;
 }
+
+int countKeysInSlot(Conn *conn, int slot) {
+  char buf[MAX_CMD_SIZE], *line;
+  int ret;
+  Reply reply;
+
+  snprintf(buf, MAX_CMD_SIZE, "CLUSTER COUNTKEYSINSLOT %d", slot);
+  ret = command(conn, buf, &reply);
+  if (ret == MY_ERR_CODE) {
+    freeReply(&reply);
+    return ret;
+  }
+
+  line = LAST_LINE2(reply);
+  ret = line == NULL ? 0 : atoi(line);
+  freeReply(&reply);
+
+  return ret;
+}

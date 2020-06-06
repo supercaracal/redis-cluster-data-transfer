@@ -6,8 +6,8 @@ CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
 CFLAGS += -Wall -Wextra -Wpedantic
 
 WORKER   ?= 8
-TIMEOUT  ?= 30
-PIPELINE ?= 100
+TIMEOUT  ?= 15
+PIPELINE ?= 20
 
 define link
 	@mkdir -p bin
