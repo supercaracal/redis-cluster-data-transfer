@@ -196,7 +196,7 @@ int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
 }
 
 void printReplyLines(const Reply *reply) {
-  int i;
+  int i, j;
 
   for (i = 0; i < reply->i; ++i) {
     switch (reply->types[i]) {
@@ -206,7 +206,8 @@ void printReplyLines(const Reply *reply) {
         fprintf(stdout, "%s\n",  reply->lines[i]);
         break;
       case RAW:
-        fprintf(stdout, "(binary)\n");
+        for (j = 0; j < reply->sizes[i]; ++j) printf("%02x ", ((unsigned char *) reply->lines[i])[j]);
+        printf("\n");
         break;
       case NIL:
         fprintf(stdout, "(null)\n");
