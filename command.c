@@ -1,9 +1,12 @@
 #include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include "./command.h"
 #include "./net.h"
 
 #define DEFAULT_REPLY_LINES 16
 #define DEFAULT_REPLY_SIZE 256
+#define MAX_RECV_SIZE (1 << 14)
 
 #define INIT_REPLY(r) do {\
   r->size = DEFAULT_REPLY_LINES;\
@@ -49,6 +52,17 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   return realLen;
 }
 
+static inline void copyReplyLineRaw(Reply *reply, const char *buf, int size) {
+  int i;
+
+  reply->lines[reply->i] = (char *) malloc(sizeof(char) * size);
+  ASSERT_MALLOC(reply->lines[reply->i], "for new reply raw lines");
+  for (i = 0; i < size; ++i) reply->lines[reply->i][i] = buf[i];
+  reply->types[reply->i] = RAW;
+  reply->sizes[reply->i] = size;
+  reply->i++;
+}
+
 static inline void addNullReply(Reply *reply) {
   reply->lines[reply->i] = NULL;
   reply->types[reply->i] = NIL;
@@ -62,11 +76,11 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
 
   size = fputs(cmd, conn->fw);
   if (size == EOF) {
-    fprintf(stderr, "fputs(3): %s to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
+    fprintf(stderr, "fputs(3): %s:%s\n", conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
   if (fflush(conn->fw) == EOF) {
-    fprintf(stderr, "fflush(3): %s to %s:%s\n", cmd, conn->addr.host, conn->addr.port);
+    fprintf(stderr, "fflush(3): %s:%s\n", conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
 
@@ -106,14 +120,19 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
         i += atoi(buf + 1);
         break;
       default:
-        // bulk string
-        readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
-        if (readSize < size) {
-          // multi line (e.g. CLUSTER NODES, INFO, ...)
-          size -= readSize;
-          if (size > 0) ++i;
+        if (buf[0] == '\0') {
+          // DUMP
+          copyReplyLineRaw(reply, buf, size);
         } else {
-          size = DEFAULT_REPLY_SIZE;
+          // bulk string
+          readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
+          if (readSize < size) {
+            // multi line (e.g. CLUSTER NODES, INFO, ...)
+            size -= readSize;
+            if (size > 0) ++i;
+          } else {
+            size = DEFAULT_REPLY_SIZE;
+          }
         }
         break;
     }
@@ -154,11 +173,47 @@ void freeReply(Reply *reply) {
   reply->i = reply->size = 0;
 }
 
+int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
+  int sock, ret;
+  char buf[MAX_RECV_SIZE];
+
+  fflush(conn->fw);
+  sock = fileno(conn->fw);
+
+  ret = send(sock, cmd, size, 0);
+  if (ret == -1) {
+    fprintf(stderr, "send(2): returns -1: %s:%s\n", conn->addr.host, conn->addr.port);
+    return MY_ERR_CODE;
+  }
+
+  ret = recv(sock, buf, MAX_RECV_SIZE, 0);
+  if (ret == -1) {
+    fprintf(stderr, "recv(2): returns -1: %s:%s\n", conn->addr.host, conn->addr.port);
+    return MY_ERR_CODE;
+  }
+
+  return MY_OK_CODE;
+}
+
 void printReplyLines(const Reply *reply) {
   int i;
 
   for (i = 0; i < reply->i; ++i) {
-    fprintf(stdout, "%s\n", reply->types[i] != NIL ? reply->lines[i] : "(null)");
+    switch (reply->types[i]) {
+      case STRING:
+      case INTEGER:
+      case ERR:
+        fprintf(stdout, "%s\n",  reply->lines[i]);
+        break;
+      case RAW:
+        fprintf(stdout, "(binary)\n");
+        break;
+      case NIL:
+        fprintf(stdout, "(null)\n");
+        break;
+      default:
+        break;
+    }
   }
 }
 

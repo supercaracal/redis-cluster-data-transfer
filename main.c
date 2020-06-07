@@ -27,44 +27,64 @@ typedef struct { char buf[MAX_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipelin
   }\
 } while (0)
 
-static void countRestoreResult(const Reply *reply, MigrationResult *result) {
+static inline void countRestoreResult(const Reply *reply, MigrationResult *result, int expected) {
   int i;
 
   for (i = 0; i < reply->i; ++i) {
-    if (strncmp(reply->lines[i], "OK", 2) == 0) {
-      result->copied++;
-    } else {
-      result->failed++;
+    switch (reply->types[i]) {
+      case STRING:
+        result->copied++;
+        break;
+      default:
+        result->failed++;
+        break;
     }
   }
+
+  if (reply->i < expected) result->failed += expected - reply->i;
+}
+
+static inline void appendRestoreCmd(Pipeline *pip, const Reply *keys, const Reply *values, int i) {
+  int j;
+
+  pip->i += snprintf(&pip->buf[pip->i], 12, "*5\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], 12, "$7\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], 12, "RESTORE\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", keys->sizes[i]);
+  pip->i += snprintf(&pip->buf[pip->i], keys->sizes[i] + 3, "%s\r\n", keys->lines[i]);
+  pip->i += snprintf(&pip->buf[pip->i], 12, "$1\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], 12, "0\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", values->sizes[i]);
+  for (j = 0; j < values->sizes[i]; ++j) pip->buf[pip->i++] = values->lines[i][j];
+  pip->i += snprintf(&pip->buf[pip->i], 12, "\n$7\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], 12, "REPLACE\r\n");
+  pip->cnt++;
+}
+
+static inline void sendResotreCmd(Conn *c, Pipeline *pip, Reply *reply, MigrationResult *result) {
+  pip->buf[pip->i] = '\0';
+  commandWithRawData(c, pip->buf, reply, pip->i);
+  countRestoreResult(reply, result, pip->cnt);
+  pip->cnt = pip->i = 0;
 }
 
 static void transferKeys(Conn *c, const Reply *keys, const Reply *values, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
-  int i, ret;
+  int i;
 
   ASSERT_MIGRATION_DATA(keys->i, values->i);
 
-  for (i = 0; i < keys->i; ++i) {
+  for (i = pip.cnt = pip.i = 0; i < keys->i; ++i) {
     if (values->types[i] == NIL) {
       result->skipped++;
       continue;
     }
 
-    pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2 + values->sizes[i],
-        "RESTORE %s 0 \"%s\" REPLACE\r\n", keys->lines[i], values->lines[i]);
-    pip.cnt++;
+    appendRestoreCmd(&pip, keys, values, i);
     if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
 
-    pip.buf[pip.i] = '\0';
-    ret = pipeline(c, pip.buf, &reply, pip.cnt);
-    if (ret == MY_ERR_CODE) {
-      result->failed += pip.cnt;
-    } else {
-      countRestoreResult(&reply, result);
-    }
-    pip.cnt = pip.i = 0;
+    sendResotreCmd(c, &pip, &reply, result);
     freeReply(&reply);
   }
 }
