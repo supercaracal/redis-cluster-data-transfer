@@ -126,14 +126,14 @@ void printReplyLines(const Reply *reply) {
       case STRING:
       case INTEGER:
       case ERR:
-        fprintf(stdout, "%s\n",  reply->lines[i]);
+        fprintf(stderr, "%s\n",  reply->lines[i]);
         break;
       case RAW:
         for (j = 0; j < reply->sizes[i]; ++j) printf("%02x ", ((unsigned char *) reply->lines[i])[j]);
         printf("\n");
         break;
       case NIL:
-        fprintf(stdout, "(null)\n");
+        printf("(null)\n");
         break;
       default:
         break;

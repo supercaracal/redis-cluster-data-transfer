@@ -118,7 +118,7 @@ void printClusterSlots(const Cluster *c) {
 
   for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) {
     conn = FIND_CONN(c, i);
-    fprintf(stdout, "%05d\t%s:%s\n", i, conn->addr.host, conn->addr.port);
+    printf("%05d\t%s:%s\n", i, conn->addr.host, conn->addr.port);
   }
 }
 
