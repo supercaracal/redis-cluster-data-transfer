@@ -40,6 +40,6 @@ typedef struct { char host[MAX_HOST_SIZE], port[MAX_PORT_SIZE]; } HostPort;
 typedef struct { FILE *fw, *fr; HostPort addr; } Conn;
 typedef struct { int size, i; Conn **nodes; int slots[CLUSTER_SLOT_SIZE]; } Cluster;
 typedef enum { STRING, INTEGER, RAW, ERR, NIL } ReplyType;
-typedef struct { int size, i, err, *sizes; char **lines; ReplyType *types; } Reply;
+typedef struct { int size, i, *sizes; char **lines; ReplyType *types; } Reply;
 
 #endif // GENERIC_H_

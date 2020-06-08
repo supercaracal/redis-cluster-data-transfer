@@ -35,6 +35,10 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
       case STRING:
         result->copied++;
         break;
+      case ERR:
+        fprintf(stderr, "%s\n", reply->lines[i]);
+        result->failed++;
+        break;
       default:
         result->failed++;
         break;
@@ -56,7 +60,9 @@ static inline void appendRestoreCmd(Pipeline *pip, const Reply *keys, const Repl
   pip->i += snprintf(&pip->buf[pip->i], 12, "0\r\n");
   pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", values->sizes[i]);
   for (j = 0; j < values->sizes[i]; ++j) pip->buf[pip->i++] = values->lines[i][j];
-  pip->i += snprintf(&pip->buf[pip->i], 12, "\n$7\r\n");
+  pip->buf[pip->i++] = '\r';
+  pip->buf[pip->i++] = '\n';
+  pip->i += snprintf(&pip->buf[pip->i], 12, "$7\r\n");
   pip->i += snprintf(&pip->buf[pip->i], 12, "REPLACE\r\n");
   pip->cnt++;
 }
