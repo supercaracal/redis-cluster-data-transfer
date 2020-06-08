@@ -1,39 +1,7 @@
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include "./generic.h"
 #include "./command.h"
 #include "./net.h"
-
-#define DEFAULT_REPLY_LINES 16
-#define DEFAULT_REPLY_SIZE 256
-#define MAX_RECV_SIZE (1 << 14)
-
-#define INIT_REPLY(r) do {\
-  r->size = DEFAULT_REPLY_LINES;\
-  r->i = 0;\
-  r->lines = (char **) malloc(sizeof(char *) * r->size);\
-  ASSERT_MALLOC(r->lines, "for init reply lines");\
-  r->types = (ReplyType *) malloc(sizeof(ReplyType) * r->size);\
-  ASSERT_MALLOC(r->types, "for init reply types");\
-  r->sizes = (int *) malloc(sizeof(int) * r->size);\
-  ASSERT_MALLOC(r->sizes, "for init reply sizes");\
-} while (0)
-
-#define EXPAND_REPLY_IF_NEEDED(r) do {\
-  if (r->i == r->size) {\
-    void *tmp;\
-    r->size *= 2;\
-    tmp = realloc(r->lines, sizeof(char *) * r->size);\
-    ASSERT_REALLOC(tmp, "for reply lines");\
-    r->lines = (char **) tmp;\
-    tmp = realloc(r->types, sizeof(ReplyType) * r->size);\
-    ASSERT_REALLOC(tmp, "for reply types");\
-    r->types = (ReplyType *) tmp;\
-    tmp = realloc(r->sizes, sizeof(int) * r->size);\
-    ASSERT_REALLOC(tmp, "for reply sizes");\
-    r->sizes = (int *) tmp;\
-  }\
-} while (0)
 
 static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset, ReplyType t) {
   int len, realLen;
@@ -50,51 +18,6 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   reply->sizes[reply->i] = len;
   reply->i++;
   return realLen;
-}
-
-static inline void copyReplyLineRaw(Reply *reply, const char *buf, int size) {
-  int i;
-
-  reply->lines[reply->i] = (char *) malloc(sizeof(char) * size);
-  ASSERT_MALLOC(reply->lines[reply->i], "for new reply raw line");
-  for (i = 0; i < size; ++i) reply->lines[reply->i][i] = buf[i];
-  reply->types[reply->i] = RAW;
-  reply->sizes[reply->i] = size;
-  reply->i++;
-}
-
-static inline int copyReplyLineFromMultiLine(Reply *reply, const char *buf, int size, ReplyType t) {
-  int i;
-
-  reply->lines[reply->i] = (char *) malloc(sizeof(char) * size);
-  ASSERT_MALLOC(reply->lines[reply->i], "for new reply line from multi lines");
-  for (i = 0; buf[i] != '\r' && buf[i] != '\n'; ++i) reply->lines[reply->i][i] = buf[i];
-  reply->lines[reply->i][i] = '\0';
-  for (; buf[i] == '\r' && buf[i] == '\n'; ++i) {};
-  reply->types[reply->i] = t;
-  reply->sizes[reply->i] = i;
-  reply->i++;
-  return i;
-}
-
-static inline int copyReplyLinesFromMultiLine(Reply *reply, const char *buf, int size) {
-  int i;
-
-  reply->sizes[reply->i] = size;
-  reply->types[reply->i] = buf[0] == '\0' ? RAW : STRING;
-  reply->lines[reply->i] = (char *) malloc(sizeof(char) * (size + 1));
-  ASSERT_MALLOC(reply->lines[reply->i], "for new reply lines from multi lines");
-  for (i = 0; i < size; ++i) reply->lines[reply->i][i] = buf[i];
-  if (reply->types[reply->i] == STRING) reply->lines[reply->i][i] = '\0';
-  reply->i++;
-  return size;
-}
-
-static inline void addNullReply(Reply *reply) {
-  reply->lines[reply->i] = NULL;
-  reply->types[reply->i] = NIL;
-  reply->sizes[reply->i] = 0;
-  reply->i++;
 }
 
 static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
@@ -140,26 +63,21 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
         if (size >= 0) {
           ++i;
         } else if (size == -1) {
-          addNullReply(reply);
+          ADD_NULL_REPLY(reply);
         }
         break;
       case '*':
         i += atoi(buf + 1);
         break;
       default:
-        if (buf[0] == '\0') {
-          // DUMP
-          copyReplyLineRaw(reply, buf, size);
+        // bulk string
+        readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
+        if (readSize < size) {
+          // multi line (e.g. CLUSTER NODES, INFO, ...)
+          size -= readSize;
+          if (size > 0) ++i;
         } else {
-          // bulk string
-          readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
-          if (readSize < size) {
-            // multi line (e.g. CLUSTER NODES, INFO, ...)
-            size -= readSize;
-            if (size > 0) ++i;
-          } else {
-            size = DEFAULT_REPLY_SIZE;
-          }
+          size = DEFAULT_REPLY_SIZE;
         }
         break;
     }
@@ -198,73 +116,6 @@ void freeReply(Reply *reply) {
   free(reply->sizes);
   reply->sizes = NULL;
   reply->i = reply->size = 0;
-}
-
-static void parseRawReply(const char *buf, Reply *reply, int size) {
-  int i, j, n;
-  char tmp[DEFAULT_REPLY_SIZE];
-
-  INIT_REPLY(reply);
-  for (i = 0; i < size; ++i) {
-    EXPAND_REPLY_IF_NEEDED(reply);
-    switch (buf[i]) {
-      case '+':
-        ++i;
-        i += copyReplyLineFromMultiLine(reply, &buf[i], DEFAULT_REPLY_SIZE, STRING);
-        break;
-      case '-':
-        ++i;
-        i += copyReplyLineFromMultiLine(reply, &buf[i], DEFAULT_REPLY_SIZE, ERR);
-        break;
-      case ':':
-        ++i;
-        i += copyReplyLineFromMultiLine(reply, &buf[i], DEFAULT_REPLY_SIZE, INTEGER);
-        break;
-      case '$':
-        for (j = 0, ++i; buf[i] != '\r'; ++j, ++i) tmp[j] = buf[i];
-        tmp[j] = '\0';
-        ++i; // \n
-        n = atoi(tmp);
-        if (n >= 0) {
-          i += copyReplyLinesFromMultiLine(reply, &buf[i], n);
-        } else if (n == -1) {
-          addNullReply(reply);
-        }
-        break;
-      case '*':
-        // TODO: impl
-        while (buf[i] != '\r') ++i;
-        ++i; // \n
-        break;
-      default:
-        break;
-    }
-  }
-}
-
-int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
-  int sock, ret;
-  char buf[MAX_RECV_SIZE];
-
-  fflush(conn->fw);
-  sock = fileno(conn->fw);
-
-  ret = send(sock, cmd, size, 0);
-  if (ret == -1) {
-    perror("send(2)");
-    fprintf(stderr, "%s:%s\n", conn->addr.host, conn->addr.port);
-    return reconnect(conn) == MY_OK_CODE ? commandWithRawData(conn, cmd, reply, size) : MY_ERR_CODE;
-  }
-
-  ret = recv(sock, buf, MAX_RECV_SIZE, 0);
-  if (ret == -1) {
-    perror("recv(2)");
-    fprintf(stderr, "%s:%s\n", conn->addr.host, conn->addr.port);
-    return MY_ERR_CODE;
-  }
-
-  parseRawReply(buf, reply, ret);
-  return MY_OK_CODE;
 }
 
 void printReplyLines(const Reply *reply) {

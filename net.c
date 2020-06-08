@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <netdb.h>
 #include <unistd.h>
+#include "./generic.h"
 #include "./net.h"
 
 #ifndef MAX_TIMEOUT_SEC

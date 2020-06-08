@@ -6,6 +6,7 @@
 #include "./generic.h"
 #include "./net.h"
 #include "./command.h"
+#include "./command_raw.h"
 #include "./cluster.h"
 
 #ifndef MAX_CONCURRENCY
@@ -19,13 +20,6 @@
 typedef struct { int copied, skipped, failed, found; } MigrationResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
 typedef struct { char buf[MAX_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
-
-#define ASSERT_MIGRATION_DATA(n, m) do {\
-  if (n != m) {\
-    fprintf(stderr, "RESTORE: keys and dump values are mismatched\n");\
-    exit(1);\
-  }\
-} while (0)
 
 static inline void countRestoreResult(const Reply *reply, MigrationResult *result, int expected) {
   int i;
@@ -48,18 +42,18 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
   if (reply->i < expected) result->failed += expected - reply->i;
 }
 
-static inline void appendRestoreCmd(Pipeline *pip, const Reply *keys, const Reply *values, int i) {
+static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize, const char *payload, int payloadSize) {
   int j;
 
   pip->i += snprintf(&pip->buf[pip->i], 12, "*5\r\n");
   pip->i += snprintf(&pip->buf[pip->i], 12, "$7\r\n");
   pip->i += snprintf(&pip->buf[pip->i], 12, "RESTORE\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", keys->sizes[i]);
-  pip->i += snprintf(&pip->buf[pip->i], keys->sizes[i] + 3, "%s\r\n", keys->lines[i]);
+  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", keySize);
+  pip->i += snprintf(&pip->buf[pip->i], keySize + 3, "%s\r\n", key);
   pip->i += snprintf(&pip->buf[pip->i], 12, "$1\r\n");
   pip->i += snprintf(&pip->buf[pip->i], 12, "0\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", values->sizes[i]);
-  for (j = 0; j < values->sizes[i]; ++j) pip->buf[pip->i++] = values->lines[i][j];
+  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", payloadSize);
+  for (j = 0; j < payloadSize; ++j) pip->buf[pip->i++] = payload[j];
   pip->buf[pip->i++] = '\r';
   pip->buf[pip->i++] = '\n';
   pip->i += snprintf(&pip->buf[pip->i], 12, "$7\r\n");
@@ -74,20 +68,18 @@ static inline void sendResotreCmd(Conn *c, Pipeline *pip, Reply *reply, Migratio
   pip->cnt = pip->i = 0;
 }
 
-static void transferKeys(Conn *c, const Reply *keys, const Reply *values, MigrationResult *result) {
+static void transferKeys(Conn *c, const Reply *keys, int first, int size, const Reply *values, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
   int i;
 
-  ASSERT_MIGRATION_DATA(keys->i, values->i);
-
-  for (i = pip.cnt = pip.i = 0; i < keys->i; ++i) {
+  for (i = pip.cnt = pip.i = 0; i < size; ++i) {
     if (values->types[i] == NIL) {
       result->skipped++;
       continue;
     }
 
-    appendRestoreCmd(&pip, keys, values, i);
+    appendRestoreCmd(&pip, keys->lines[first+i], keys->sizes[first+i], values->lines[i], values->sizes[i]);
     if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
 
     sendResotreCmd(c, &pip, &reply, result);
@@ -98,21 +90,28 @@ static void transferKeys(Conn *c, const Reply *keys, const Reply *values, Migrat
 static void copyKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
-  int i, ret;
+  int i, ret, first;
 
-  for (i = pip.i = pip.cnt = 0; i < keys->i; ++i) {
+  for (i = first = pip.i = pip.cnt = 0; i < keys->i; ++i) {
     pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2, "DUMP %s\r\n", keys->lines[i]);
     pip.cnt++;
     if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
 
     pip.buf[pip.i] = '\0';
-    ret = pipeline(src, pip.buf, &reply, pip.cnt);
+    ret = commandWithRawData(src, pip.buf, &reply, pip.i);
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
-      transferKeys(dest, keys, &reply, result);
+      if (pip.cnt != reply.i) {
+        // fprintf(stderr, "%s\n", pip.buf);
+        // printReplyLines(&reply);
+        fprintf(stderr, "RESTORE: keys and dump values are mismatched\n");
+        exit(1);
+      }
+      transferKeys(dest, keys, first, pip.cnt, &reply, result);
     }
     pip.cnt = pip.i = 0;
+    first = i + 1;
     freeReply(&reply);
   }
 }

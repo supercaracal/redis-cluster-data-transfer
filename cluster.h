@@ -1,8 +1,6 @@
 #ifndef CLUSTER_H_
 #define CLUSTER_H_
 
-#include "./generic.h"
-
 int fetchClusterState(const char *, Cluster *);
 Cluster *copyClusterState(const Cluster *);
 int freeClusterState(Cluster *);

@@ -1,5 +1,5 @@
 CC   := gcc
-SRCS := command net cluster
+SRCS := command command_raw net cluster
 OBJS := $(addsuffix .o,$(SRCS))
 
 CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
