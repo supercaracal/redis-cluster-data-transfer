@@ -21,7 +21,7 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
 }
 
 static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
-  int i, ret, size, readSize;
+  int i, ret, size, readSize, isBulkStr;
   char *buf;
 
   size = fputs(cmd, conn->fw);
@@ -35,7 +35,7 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
   }
 
   INIT_REPLY(reply);
-  for (i = n, size = DEFAULT_REPLY_SIZE, ret = MY_OK_CODE; i > 0; --i) {
+  for (i = n, size = DEFAULT_REPLY_SIZE, ret = MY_OK_CODE, isBulkStr = 0; i > 0; --i) {
     EXPAND_REPLY_IF_NEEDED(reply);
     buf = (char *) malloc(sizeof(char) * (size + 3)); // \r \n \0
     ASSERT_MALLOC(buf, "for reading reply buffer");
@@ -46,40 +46,45 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
       return reconnect(conn) == MY_OK_CODE ? executeCommand(conn, cmd, reply, n) : MY_ERR_CODE;
     }
     // @see https://redis.io/topics/protocol Redis Protocol specification
-    switch (buf[0]) {
-      case '+':
-        copyReplyLineWithoutMeta(reply, buf, 1, STRING);
-        break;
-      case '-':
-        copyReplyLineWithoutMeta(reply, buf, 1, ERR);
-        fprintf(stderr, "%s:%s says %s\n", conn->addr.host, conn->addr.port, LAST_LINE(reply));
-        ret = MY_ERR_CODE;
-        break;
-      case ':':
-        copyReplyLineWithoutMeta(reply, buf, 1, INTEGER);
-        break;
-      case '$':
-        size = atoi(buf + 1);
-        if (size >= 0) {
-          ++i;
-        } else if (size == -1) {
-          ADD_NULL_REPLY(reply);
-        }
-        break;
-      case '*':
-        i += atoi(buf + 1);
-        break;
-      default:
-        // bulk string
-        readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
-        if (readSize < size) {
-          // multi line (e.g. CLUSTER NODES, INFO, ...)
-          size -= readSize;
-          if (size > 0) ++i;
-        } else {
-          size = DEFAULT_REPLY_SIZE;
-        }
-        break;
+    if (isBulkStr) {
+      // bulk string
+      readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
+      if (readSize < size) {
+        // multi line (e.g. CLUSTER NODES, INFO, ...)
+        size -= readSize;
+        if (size > 0) ++i;
+      } else {
+        size = DEFAULT_REPLY_SIZE;
+        isBulkStr = 0;
+      }
+    } else {
+      switch (buf[0]) {
+        case '+':
+          copyReplyLineWithoutMeta(reply, buf, 1, STRING);
+          break;
+        case '-':
+          copyReplyLineWithoutMeta(reply, buf, 1, ERR);
+          fprintf(stderr, "%s:%s says %s\n", conn->addr.host, conn->addr.port, LAST_LINE(reply));
+          ret = MY_ERR_CODE;
+          break;
+        case ':':
+          copyReplyLineWithoutMeta(reply, buf, 1, INTEGER);
+          break;
+        case '$':
+          size = atoi(buf + 1);
+          if (size >= 0) {
+            ++i;
+            isBulkStr = 1;
+          } else if (size == -1) {
+            ADD_NULL_REPLY(reply);
+          }
+          break;
+        case '*':
+          i += atoi(buf + 1);
+          break;
+        default:
+          break;
+      }
     }
     free(buf);
   }
