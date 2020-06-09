@@ -1,6 +1,7 @@
-CC   := gcc
-SRCS := command command_raw net cluster copy
-OBJS := $(addsuffix .o,$(SRCS))
+CC    := gcc
+SHELL := /bin/bash
+SRCS  := command command_raw net cluster copy
+OBJS  := $(addsuffix .o,$(SRCS))
 
 CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
 CFLAGS += -Wall -Wextra -Wpedantic
@@ -52,7 +53,11 @@ bin/dcli: CPPFLAGS += -DDEBUG
 bin/dcli: client.o $(OBJS)
 	$(call link)
 
+lint:
+	@type cpplint
+	@cpplint *.h *.c
+
 clean:
 	@rm -rf bin *.o
 
-.PHONY: build debug clean
+.PHONY: build debug lint clean

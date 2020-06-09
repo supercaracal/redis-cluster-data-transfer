@@ -54,4 +54,4 @@ void freeReply(Reply *);
 void printReplyLines(const Reply *);
 int isKeylessCommand(const char *);
 
-#endif // COMMAND_H_
+#endif  // COMMAND_H_

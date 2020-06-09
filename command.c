@@ -8,10 +8,10 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   len = realLen = strlen(buf);
   if (buf[len - 1] == '\n') --len;
   if (buf[len - 1] == '\r') --len;
-  len -= offset; // special chars
-  reply->lines[reply->i] = (char *) malloc(sizeof(char) * (len + 1)); // terminator
+  len -= offset;  // special chars
+  reply->lines[reply->i] = (char *) malloc(sizeof(char) * (len + 1));  // terminator
   ASSERT_MALLOC(reply->lines[reply->i], "for new reply line");
-  strncpy(reply->lines[reply->i], buf + offset, len + 1); // terminator
+  strncpy(reply->lines[reply->i], buf + offset, len + 1);  // terminator
   reply->lines[reply->i][len] = '\0';
   reply->types[reply->i] = t;
   reply->sizes[reply->i] = len;
@@ -36,9 +36,9 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
   INIT_REPLY(reply);
   for (i = n, size = DEFAULT_REPLY_SIZE, ret = MY_OK_CODE, isBulkStr = 0; i > 0; --i) {
     EXPAND_REPLY_IF_NEEDED(reply);
-    buf = (char *) malloc(sizeof(char) * (size + 3)); // \r \n \0
+    buf = (char *) malloc(sizeof(char) * (size + 3));  // \r \n \0
     ASSERT_MALLOC(buf, "for reading reply buffer");
-    if (fgets(buf, size + 3, conn->fr) == NULL) { // \r \n \0
+    if (fgets(buf, size + 3, conn->fr) == NULL) {  // \r \n \0
       free(buf);
       freeReply(reply);
       fprintf(stderr, "fgets(3): returns NULL, trying to reconnect to %s:%s\n", conn->addr.host, conn->addr.port);

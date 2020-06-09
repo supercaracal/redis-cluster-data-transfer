@@ -25,4 +25,4 @@
   }\
 } while (0)
 
-#endif // GENERIC_H_
+#endif  // GENERIC_H_

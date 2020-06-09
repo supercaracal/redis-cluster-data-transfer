@@ -7,4 +7,4 @@ typedef struct { int copied, skipped, failed, found; } MigrationResult;
 
 int migrateKeys(const Cluster *, const Cluster *, int, int, MigrationResult *);
 
-#endif // COPY_H_
+#endif  // COPY_H_

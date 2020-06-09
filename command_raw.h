@@ -5,4 +5,4 @@
 
 int commandWithRawData(Conn *, const void *, Reply *, int);
 
-#endif // COMMAND_RAW_H_
+#endif  // COMMAND_RAW_H_

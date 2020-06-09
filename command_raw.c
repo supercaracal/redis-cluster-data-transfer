@@ -13,7 +13,7 @@ static inline int copyReplyLineFromMultiLine(Reply *reply, const char *buf, int 
   ASSERT_MALLOC(reply->lines[reply->i], "for new reply line from multi lines");
   for (i = 0; buf[i] != '\r' && buf[i] != '\n'; ++i) reply->lines[reply->i][i] = buf[i];
   reply->lines[reply->i][i] = '\0';
-  for (; buf[i] == '\r' && buf[i] == '\n'; ++i) {};
+  for (; buf[i] == '\r' && buf[i] == '\n'; ++i) {}
   reply->types[reply->i] = t;
   reply->sizes[reply->i] = i;
   reply->i++;
@@ -53,9 +53,10 @@ static void parseRawReply(const char *buf, Reply *reply, int size) {
         i += copyReplyLineFromMultiLine(reply, &buf[i], DEFAULT_REPLY_SIZE, INTEGER);
         break;
       case '$':
-        for (j = 0, ++i; buf[i] != '\r'; ++j, ++i) tmp[j] = buf[i];
+        ++i;
+        for (j = 0; buf[i] != '\r'; ++j, ++i) tmp[j] = buf[i];
         tmp[j] = '\0';
-        ++i; // \n
+        ++i;  // \n
         n = atoi(tmp);
         if (n >= 0) {
           i += copyReplyLinesFromMultiLine(reply, &buf[i + 1], n);
@@ -64,9 +65,9 @@ static void parseRawReply(const char *buf, Reply *reply, int size) {
         }
         break;
       case '*':
-        // TODO: impl
+        // TODO(me): impl
         while (buf[i] != '\r') ++i;
-        ++i; // \n
+        ++i;  // \n
         break;
       default:
         // not expected token

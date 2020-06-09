@@ -5,7 +5,7 @@
 
 #ifndef PIPELINING_SIZE
 #define PIPELINING_SIZE 10
-#endif // PIPELINING_SIZE
+#endif  // PIPELINING_SIZE
 
 typedef struct { char buf[MAX_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
 
@@ -22,7 +22,7 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
         result->failed++;
         break;
       default:
-        result->failed++;
+        result->skipped++;  // TODO(me): legit?
         break;
     }
   }
@@ -31,46 +31,44 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
 }
 
 static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize, const char *payload, int payloadSize) {
-  int j;
+  int j, chunkSize;
 
-  pip->i += snprintf(&pip->buf[pip->i], 12, "*5\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "$7\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "RESTORE\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", keySize);
+  chunkSize = 12;
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "*5\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$7\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "RESTORE\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", keySize);
   pip->i += snprintf(&pip->buf[pip->i], keySize + 3, "%s\r\n", key);
-  pip->i += snprintf(&pip->buf[pip->i], 12, "$1\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "0\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "$%d\r\n", payloadSize);
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$1\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "0\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", payloadSize);
   for (j = 0; j < payloadSize; ++j) pip->buf[pip->i++] = payload[j];
   pip->buf[pip->i++] = '\r';
   pip->buf[pip->i++] = '\n';
-  pip->i += snprintf(&pip->buf[pip->i], 12, "$7\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], 12, "REPLACE\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$7\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "REPLACE\r\n");
   pip->cnt++;
 }
 
-static inline void sendResotreCmd(Conn *c, Pipeline *pip, Reply *reply, MigrationResult *result) {
-  pip->buf[pip->i] = '\0';
-  commandWithRawData(c, pip->buf, reply, pip->i);
-  countRestoreResult(reply, result, pip->cnt);
-  pip->cnt = pip->i = 0;
-}
-
-static void transferKeys(Conn *c, const Reply *keys, int first, int size, const Reply *values, MigrationResult *result) {
+static void transferKeys(Conn *c, const Reply *keyValues, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
   int i;
 
-  for (i = pip.cnt = pip.i = 0; i < size; ++i) {
-    if (values->types[i] == NIL) {
-      result->skipped++;
-      continue;
-    }
+  if (keyValues->i % 2 > 0) {
+    printReplyLines(keyValues);
+    fprintf(stderr, "RESTORE: Keys and payloads were mismatched.");
+    exit(1);
+  }
 
-    appendRestoreCmd(&pip, keys->lines[first+i], keys->sizes[first+i], values->lines[i], values->sizes[i]);
-    if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
+  for (i = pip.cnt = pip.i = 0; i < keyValues->i; i += 2) {
+    appendRestoreCmd(&pip, keyValues->lines[i], keyValues->sizes[i], keyValues->lines[i+1], keyValues->sizes[i+1]);
+    if (i > 0 && i % PIPELINING_SIZE > 0 && i < keyValues->i - 1) continue;
 
-    sendResotreCmd(c, &pip, &reply, result);
+    pip.buf[pip.i] = '\0';
+    commandWithRawData(c, pip.buf, &reply, pip.i);
+    countRestoreResult(&reply, result, pip.cnt);
+    pip.cnt = pip.i = 0;
     freeReply(&reply);
   }
 }
@@ -78,10 +76,10 @@ static void transferKeys(Conn *c, const Reply *keys, int first, int size, const 
 static void copyKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
-  int i, ret, first;
+  int i, ret;
 
-  for (i = first = pip.i = pip.cnt = 0; i < keys->i; ++i) {
-    pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2, "DUMP %s\r\n", keys->lines[i]);
+  for (i = pip.i = pip.cnt = 0; i < keys->i; ++i) {
+    pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2, "ECHO %s\r\nDUMP %s\r\n", keys->lines[i], keys->lines[i]);
     pip.cnt++;
     if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
 
@@ -90,16 +88,9 @@ static void copyKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
-      if (pip.cnt != reply.i) {
-        // fprintf(stderr, "%s\n", pip.buf);
-        // printReplyLines(&reply);
-        fprintf(stderr, "RESTORE: keys and dump values are mismatched\n");
-        exit(1);
-      }
-      transferKeys(dest, keys, first, pip.cnt, &reply, result);
+      transferKeys(dest, &reply, result);
     }
     pip.cnt = pip.i = 0;
-    first = i + 1;
     freeReply(&reply);
   }
 }

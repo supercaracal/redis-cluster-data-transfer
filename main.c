@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdint.h>
 #include "./generic.h"
 #include "./net.h"
 #include "./cluster.h"
@@ -9,7 +10,7 @@
 
 #ifndef MAX_CONCURRENCY
 #define MAX_CONCURRENCY 4
-#endif // MAX_CONCURRENCY
+#endif  // MAX_CONCURRENCY
 
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
 
@@ -18,7 +19,8 @@ static void *workOnATask(void *args) {
   int i;
 
   p = (WorkerArgs *) args;
-  printf("%02d: %lu <%lu>: %05d - %05d\n", p->i, (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
+  printf("%02d: %lu <%lu>: %05d - %05d\n",
+      p->i, (uint64_t) getpid(), (uint64_t) pthread_self(), p->firstSlot, p->lastSlot);
   p->result->found = p->result->copied = p->result->skipped = p->result->failed = 0;
   for (i = p->firstSlot; i <= p->lastSlot; ++i) migrateKeys(p->src, p->dest, i, p->dryRun, p->result);
   pthread_exit((void *) p->result);
