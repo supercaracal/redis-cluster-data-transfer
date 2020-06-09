@@ -56,7 +56,7 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
   int i;
 
   if (keyPayloads->i % 2 > 0) {
-    fprintf(stderr, "RESTORE: Keys and payloads were mismatched.");
+    fprintf(stderr, "RESTORE: Keys and payloads were mismatched\n");
     result->failed += keyPayloads->i;
     return;
   }

@@ -34,7 +34,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   MigrationResult sum, results[MAX_CONCURRENCY];
 
   if (CLUSTER_SLOT_SIZE % MAX_CONCURRENCY > 0) {
-    fprintf(stderr, "MAX_CONCURRENCY must be %d's divisor: %d given", CLUSTER_SLOT_SIZE, MAX_CONCURRENCY);
+    fprintf(stderr, "MAX_CONCURRENCY must be %d's divisor: %d given\n", CLUSTER_SLOT_SIZE, MAX_CONCURRENCY);
     return MY_ERR_CODE;
   }
 
@@ -56,7 +56,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
 
     ret = pthread_create(&workers[i], NULL, workOnATask, &args[i]);
     if (ret != 0) {
-      fprintf(stderr, "pthread_create(3): Could not create a worker");
+      fprintf(stderr, "pthread_create(3): Could not create a worker\n");
       return MY_ERR_CODE;
     }
   }
@@ -64,7 +64,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     ret = pthread_join(workers[i], &tmp);
     if (ret != 0) {
-      fprintf(stderr, "pthread_join(3): Could not join with a thread");
+      fprintf(stderr, "pthread_join(3): Could not join with a thread\n");
       return MY_ERR_CODE;
     }
 
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
   sa.sa_flags = 0;
   sa.sa_handler = SIG_IGN;
   if (sigaction(SIGPIPE, &sa, NULL) < 0) {
-    fprintf(stderr, "sigaction(2): SIGPIPE failed");
+    fprintf(stderr, "sigaction(2): SIGPIPE failed\n");
     exit(1);
   }
 
