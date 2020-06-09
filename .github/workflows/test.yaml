@@ -19,9 +19,18 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v1
-      - name: Make
-        run: make
+
+      - name: Install cpplint
+        run: pip install cpplint
+
+      - name: Lint
+        run: make lint
+
+      - name: Make build
+        run: make build
+
       - name: Make clean
         run: make clean
+
       - name: Make debug
         run: make debug
