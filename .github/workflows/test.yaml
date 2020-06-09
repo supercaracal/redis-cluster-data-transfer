@@ -20,12 +20,6 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v1
 
-      - name: Install cpplint
-        run: pip3 install cpplint
-
-      - name: Lint
-        run: make lint
-
       - name: Make build
         run: make build
 
@@ -34,3 +28,8 @@ jobs:
 
       - name: Make debug
         run: make debug
+
+      - name: Lint
+        run: |
+          pip3 install cpplint
+          make lint
