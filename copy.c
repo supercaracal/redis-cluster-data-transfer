@@ -31,18 +31,20 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
 }
 
 static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize, const char *payload, int payloadSize) {
-  int j, chunkSize;
+  int i, chunkSize;
 
   chunkSize = 12;
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "*5\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$7\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "RESTORE\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", keySize);
-  pip->i += snprintf(&pip->buf[pip->i], keySize + 3, "%s\r\n", key);
+  pip->i += snprintf(&pip->buf[pip->i], keySize, "%s", key);
+  pip->buf[pip->i++] = '\r';
+  pip->buf[pip->i++] = '\n';
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$1\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "0\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", payloadSize);
-  for (j = 0; j < payloadSize; ++j) pip->buf[pip->i++] = payload[j];
+  for (i = 0; i < payloadSize; ++i) pip->buf[pip->i++] = payload[i];
   pip->buf[pip->i++] = '\r';
   pip->buf[pip->i++] = '\n';
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$7\r\n");
