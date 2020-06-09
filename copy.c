@@ -38,7 +38,7 @@ static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize,
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$7\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "RESTORE\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", keySize);
-  pip->i += snprintf(&pip->buf[pip->i], keySize, "%s", key);
+  for (i = 0; i < keySize; ++i) pip->buf[pip->i++] = key[i];
   pip->buf[pip->i++] = '\r';
   pip->buf[pip->i++] = '\n';
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$1\r\n");
