@@ -42,7 +42,7 @@ static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize,
   pip->buf[pip->i++] = '\r';
   pip->buf[pip->i++] = '\n';
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$1\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "0\r\n");
+  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "%d\r\n", 0);  // TTL msec
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", payloadSize);
   for (i = 0; i < payloadSize; ++i) pip->buf[pip->i++] = payload[i];
   pip->buf[pip->i++] = '\r';
