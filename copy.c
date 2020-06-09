@@ -62,6 +62,11 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
   }
 
   for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 2) {
+    if (keyPayloads->types[i+1] != RAW) {
+      result->skipped++;
+      continue;
+    }
+
     appendRestoreCmd(&pip, keyPayloads->lines[i], keyPayloads->sizes[i], keyPayloads->lines[i+1], keyPayloads->sizes[i+1]);
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
 
