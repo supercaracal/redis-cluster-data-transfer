@@ -20,16 +20,22 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v1
 
-      - name: Make build
+      - name: Build
         run: make build
 
-      - name: Make clean
+      - name: Clean
         run: make clean
 
-      - name: Make debug
+      - name: Debug
         run: make debug
 
+      - name: Set up Python
+        use : actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install cpplint
+        run: pip install cpplint
+
       - name: Lint
-        run: |
-          pip3 install cpplint
-          make lint
+        run: make lint
