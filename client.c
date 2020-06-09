@@ -40,9 +40,9 @@ static char *trim(char *str) {
 
 int main(int argc, char **argv) {
   char buf[MAX_CMD_SIZE], *cmd;
+  int ret;
   Cluster cluster;
   Reply reply;
-  int ret;
 
   if (argc != 2) {
     fprintf(stderr, "Usage: bin/cli host:port\n");
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
   printClusterNodes(&cluster);
 
   while (1) {
-    printf("cli> ");
+    printf(">> ");
 
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
       fprintf(stderr, "fgets(3)\n");

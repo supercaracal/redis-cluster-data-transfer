@@ -2,6 +2,8 @@
 #include "./generic.h"
 #include "./command.h"
 
+#define MAX_REPLY_LINE_SIZE (1 << 16)
+
 static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset, ReplyType t) {
   int len, realLen;
 
@@ -21,10 +23,9 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
 
 static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
   int i, ret, size, readSize, isBulkStr;
-  char *buf;
+  char buf[MAX_REPLY_LINE_SIZE];
 
-  size = fputs(cmd, conn->fw);
-  if (size == EOF) {
+  if (fputs(cmd, conn->fw) == EOF) {
     fprintf(stderr, "fputs(3): %s:%s\n", conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
@@ -36,10 +37,7 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
   INIT_REPLY(reply);
   for (i = n, size = DEFAULT_REPLY_SIZE, ret = MY_OK_CODE, isBulkStr = 0; i > 0; --i) {
     EXPAND_REPLY_IF_NEEDED(reply);
-    buf = (char *) malloc(sizeof(char) * (size + 3));  // \r \n \0
-    ASSERT_MALLOC(buf, "for reading reply buffer");
     if (fgets(buf, size + 3, conn->fr) == NULL) {  // \r \n \0
-      free(buf);
       freeReply(reply);
       fprintf(stderr, "fgets(3): returns NULL, trying to reconnect to %s:%s\n", conn->addr.host, conn->addr.port);
       return reconnect(conn) == MY_OK_CODE ? executeCommand(conn, cmd, reply, n) : MY_ERR_CODE;
@@ -85,23 +83,16 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
           break;
       }
     }
-    free(buf);
   }
 
   return ret;
 }
 
 int command(Conn *conn, const char *cmd, Reply *reply) {
-  char *buf;
-  int ret;
+  char buf[MAX_CMD_SIZE];
 
-  buf = (char *) malloc(sizeof(char) * MAX_CMD_SIZE);
-  ASSERT_MALLOC(buf, "for writing command buffer");
   snprintf(buf, MAX_CMD_SIZE, "%s\r\n", cmd);
-  ret = executeCommand(conn, buf, reply, 1);
-  free(buf);
-
-  return ret;
+  return executeCommand(conn, buf, reply, 1);
 }
 
 
