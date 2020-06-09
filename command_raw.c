@@ -3,7 +3,6 @@
 #include "./generic.h"
 #include "./command.h"
 #include "./command_raw.h"
-#include "./net.h"
 
 #define MAX_RECV_SIZE (1 << 16)
 

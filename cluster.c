@@ -1,7 +1,6 @@
 #include <string.h>
 #include "./generic.h"
 #include "./cluster.h"
-#include "./net.h"
 #include "./command.h"
 
 #define DEFAULT_NODE_SIZE 8

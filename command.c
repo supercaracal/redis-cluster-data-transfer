@@ -1,7 +1,6 @@
 #include <string.h>
 #include "./generic.h"
 #include "./command.h"
-#include "./net.h"
 
 static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset, ReplyType t) {
   int len, realLen;
