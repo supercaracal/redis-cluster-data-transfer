@@ -50,20 +50,20 @@ static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize,
   pip->cnt++;
 }
 
-static void transferKeys(Conn *c, const Reply *keyValues, MigrationResult *result) {
+static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
   int i;
 
-  if (keyValues->i % 2 > 0) {
-    printReplyLines(keyValues);
+  if (keyPayloads->i % 2 > 0) {
     fprintf(stderr, "RESTORE: Keys and payloads were mismatched.");
-    exit(1);
+    result->failed += keyPayloads->i;
+    return;
   }
 
-  for (i = pip.cnt = pip.i = 0; i < keyValues->i; i += 2) {
-    appendRestoreCmd(&pip, keyValues->lines[i], keyValues->sizes[i], keyValues->lines[i+1], keyValues->sizes[i+1]);
-    if (i > 0 && i % PIPELINING_SIZE > 0 && i < keyValues->i - 1) continue;
+  for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 2) {
+    appendRestoreCmd(&pip, keyPayloads->lines[i], keyPayloads->sizes[i], keyPayloads->lines[i+1], keyPayloads->sizes[i+1]);
+    if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
 
     pip.buf[pip.i] = '\0';
     commandWithRawData(c, pip.buf, &reply, pip.i);
@@ -73,7 +73,7 @@ static void transferKeys(Conn *c, const Reply *keyValues, MigrationResult *resul
   }
 }
 
-static void copyKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *result) {
+static void dumpAndRestoreKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
   int i, ret;
@@ -95,7 +95,7 @@ static void copyKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *
   }
 }
 
-int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
+int copyKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
   char buf[MAX_CMD_SIZE];
   int ret;
   Reply reply;
@@ -112,7 +112,7 @@ int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, M
     freeReply(&reply);
     return ret;
   }
-  copyKeys(FIND_CONN(src, slot), FIND_CONN(dest, slot), &reply, result);
+  dumpAndRestoreKeys(FIND_CONN(src, slot), FIND_CONN(dest, slot), &reply, result);
   freeReply(&reply);
 
   return MY_OK_CODE;
