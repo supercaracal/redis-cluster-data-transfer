@@ -72,7 +72,7 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
     appendRestoreCmd(&pip, keyPayloads->lines[i], keyPayloads->sizes[i], keyPayloads->lines[i+1], keyPayloads->sizes[i+1]);
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
 
-    pip.buf[pip.i] = '\0';
+    pip.buf[pip.i++] = '\0';
     commandWithRawData(c, pip.buf, &reply, pip.i);
     countRestoreResult(&reply, result, pip.cnt);
     pip.cnt = pip.i = 0;
