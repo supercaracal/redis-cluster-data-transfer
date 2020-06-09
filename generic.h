@@ -25,4 +25,11 @@
   }\
 } while (0)
 
+#define PRINT_BINARY(line, size) do {\
+  int i;\
+  for (i = 0; i < size; ++i) {\
+    printf("%02x ", ((unsigned char *) line)[i]);\
+  }\
+} while (0)
+
 #endif  // GENERIC_H_

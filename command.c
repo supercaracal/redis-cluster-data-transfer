@@ -123,7 +123,7 @@ void freeReply(Reply *reply) {
 }
 
 void printReplyLines(const Reply *reply) {
-  int i, j;
+  int i;
 
   for (i = 0; i < reply->i; ++i) {
     switch (reply->types[i]) {
@@ -133,7 +133,7 @@ void printReplyLines(const Reply *reply) {
         fprintf(stderr, "%s\n",  reply->lines[i]);
         break;
       case RAW:
-        for (j = 0; j < reply->sizes[i]; ++j) printf("%02x ", ((unsigned char *) reply->lines[i])[j]);
+        PRINT_BINARY(reply->lines[i], reply->sizes[i]);
         printf("\n");
         break;
       case NIL:
