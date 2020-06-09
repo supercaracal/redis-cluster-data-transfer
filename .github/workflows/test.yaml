@@ -29,6 +29,9 @@ jobs:
       - name: Debug
         run: make debug
 
+      - name: Test
+        run: make test
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:

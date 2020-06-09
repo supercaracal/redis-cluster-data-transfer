@@ -57,7 +57,10 @@ lint:
 	@type cpplint
 	@cpplint *.h *.c
 
+test:
+	@echo TODO
+
 clean:
 	@rm -rf bin *.o
 
-.PHONY: build debug lint clean
+.PHONY: build debug lint test clean
