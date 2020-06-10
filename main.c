@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
-#include <stdint.h>
 #include "./generic.h"
 #include "./net.h"
 #include "./cluster.h"
@@ -20,7 +19,7 @@ static void *workOnATask(void *args) {
 
   p = (WorkerArgs *) args;
   printf("%02d: %lu <%lu>: %05d - %05d\n",
-      p->i, (uint64_t) getpid(), (uint64_t) pthread_self(), p->firstSlot, p->lastSlot);
+      p->i, (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
   p->result->found = p->result->copied = p->result->skipped = p->result->failed = 0;
   for (i = p->firstSlot; i <= p->lastSlot; ++i) copyKeys(p->src, p->dest, i, p->dryRun, p->result);
   pthread_exit((void *) p->result);
