@@ -1,6 +1,7 @@
 #include "./generic.h"
 #include "./command.h"
 #include "./command_raw.h"
+#include "./cluster.h"
 #include "./copy.h"
 
 #ifndef PIPELINING_SIZE
@@ -59,8 +60,7 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
 
   if (keyPayloads->i % 2 > 0) {
     fprintf(stderr, "RESTORE: Keys and payloads were mismatched\n");
-    result->failed += keyPayloads->i;
-    return;
+    exit(1);
   }
 
   for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 2) {
@@ -74,12 +74,13 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
 
     commandWithRawData(c, pip.buf, &reply, pip.i);
     countRestoreResult(&reply, result, pip.cnt);
+
     pip.cnt = pip.i = 0;
     freeReply(&reply);
   }
 }
 
-static void dumpAndRestoreKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *result) {
+static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
   int i, ret;
@@ -100,24 +101,25 @@ static void dumpAndRestoreKeys(Conn *src, Conn *dest, const Reply *keys, Migrati
   }
 }
 
-int copyKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
+int copyKeys(Conn *src, Conn *dest, int slot, MigrationResult *result, int dryRun) {
   char buf[MAX_CMD_SIZE];
   int ret;
   Reply reply;
 
-  ret = countKeysInSlot(FIND_CONN(src, slot), slot);
+  ret = countKeysInSlot(src, slot);
   if (ret == MY_ERR_CODE) return ret;
   if (ret == 0) return MY_OK_CODE;
   result->found += ret;
   if (dryRun) return MY_OK_CODE;
 
   snprintf(buf, MAX_CMD_SIZE, "CLUSTER GETKEYSINSLOT %d %d", slot, ret);
-  ret = command(FIND_CONN(src, slot), buf, &reply);
+  ret = command(src, buf, &reply);
   if (ret == MY_ERR_CODE) {
     freeReply(&reply);
     return ret;
   }
-  dumpAndRestoreKeys(FIND_CONN(src, slot), FIND_CONN(dest, slot), &reply, result);
+
+  fetchAndTransferKeys(src, dest, &reply, result);
   freeReply(&reply);
 
   return MY_OK_CODE;

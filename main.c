@@ -14,14 +14,19 @@
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
 
 static void *workOnATask(void *args) {
-  WorkerArgs *p;
   int i;
+  WorkerArgs *p;
 
   p = (WorkerArgs *) args;
+  p->result->found = p->result->copied = p->result->skipped = p->result->failed = 0;
+
   printf("%02d: %lu <%lu>: %05d - %05d\n",
       p->i, (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
-  p->result->found = p->result->copied = p->result->skipped = p->result->failed = 0;
-  for (i = p->firstSlot; i <= p->lastSlot; ++i) copyKeys(p->src, p->dest, i, p->dryRun, p->result);
+
+  for (i = p->firstSlot; i <= p->lastSlot; ++i) {
+    copyKeys(FIND_CONN(p->src, i), FIND_CONN(p->dest, i), i, p->result, p->dryRun);
+  }
+
   pthread_exit((void *) p->result);
 }
 
@@ -90,8 +95,8 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
 
 int main(int argc, char **argv) {
   int ret, dryRun;
-  Cluster src, dest;
   struct sigaction sa;
+  Cluster src, dest;
 
   if (argc < 3 || argc > 4) {
     fprintf(stderr, "Usage: bin/exe src-host:port dest-host:port [-C]\n");

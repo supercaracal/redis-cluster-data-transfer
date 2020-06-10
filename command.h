@@ -3,7 +3,7 @@
 
 #include "./net.h"
 
-#define MAX_CMD_SIZE 4096
+#define MAX_CMD_SIZE (1 << 14)
 #define MAX_KEY_SIZE 256
 #define DEFAULT_REPLY_LINES 16
 #define DEFAULT_REPLY_SIZE 256
