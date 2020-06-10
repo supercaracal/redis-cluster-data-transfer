@@ -32,4 +32,15 @@
   }\
 } while (0)
 
+#define PRINT_MIXED_BINARY(line, size) do {\
+  int i;\
+  for (i = 0; i < size; ++i) {\
+    if ((' ' <= line[i] && line[i] <= '~') || line[i] == '\r' || line[i] == '\n') {\
+      printf("%c", line[i]);\
+    } else {\
+      printf("%02x", ((unsigned char *) line)[i]);\
+    }\
+  }\
+} while (0)
+
 #endif  // GENERIC_H_

@@ -22,7 +22,7 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
         result->failed++;
         break;
       default:
-        result->skipped++;  // TODO(me): legit?
+        result->skipped++;  // FIXME(me): legit?
         break;
     }
   }
@@ -72,7 +72,6 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
     appendRestoreCmd(&pip, keyPayloads->lines[i], keyPayloads->sizes[i], keyPayloads->lines[i+1], keyPayloads->sizes[i+1]);
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
 
-    pip.buf[pip.i++] = '\0';
     commandWithRawData(c, pip.buf, &reply, pip.i);
     countRestoreResult(&reply, result, pip.cnt);
     pip.cnt = pip.i = 0;
@@ -90,7 +89,6 @@ static void dumpAndRestoreKeys(Conn *src, Conn *dest, const Reply *keys, Migrati
     pip.cnt++;
     if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
 
-    pip.buf[pip.i] = '\0';
     ret = commandWithRawData(src, pip.buf, &reply, pip.i);
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
