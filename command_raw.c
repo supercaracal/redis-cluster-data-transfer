@@ -86,14 +86,16 @@ int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
   ret = send(sock, cmd, size, 0);
   if (ret == -1) {
     perror("send(2)");
-    fprintf(stderr, "%s:%s\n", conn->addr.host, conn->addr.port);
     return reconnect(conn) == MY_OK_CODE ? commandWithRawData(conn, cmd, reply, size) : MY_ERR_CODE;
   }
 
   ret = recv(sock, buf, MAX_RECV_SIZE, 0);
   if (ret == -1) {
     perror("recv(2)");
-    fprintf(stderr, "%s:%s\n", conn->addr.host, conn->addr.port);
+    return MY_ERR_CODE;
+  }
+  if (ret == 0) {
+    fprintf(stderr, "recv(2): returns 0: %s:%s\n", conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
 
