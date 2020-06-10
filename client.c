@@ -28,12 +28,12 @@ static char *trim(char *str) {
   char *head;
 
   if (str == NULL) return str;
-  while (*str == ' ') ++str;
+  while (*str == '\n' || *str == '\r' || *str == ' ' || *str == '\t') ++str;
   head = str;
   while (*str != '\0') ++str;
-  --str;
-  while (*str == '\n' || *str == '\r' || *str == ' ') --str;
-  *(++str) = '\0';
+  if (head != str) --str;
+  while (*str == '\n' || *str == '\r' || *str == ' ' || *str == '\t') --str;
+  if (head != str) *(++str) = '\0';
 
   return head;
 }
@@ -61,6 +61,8 @@ int main(int argc, char **argv) {
     }
 
     cmd = trim(buf);
+    if (cmd[0] == '\0') continue;
+
     ret = execute(&cluster, cmd, &reply);
     if (ret == MY_ERR_CODE) {
       freeReply(&reply);
