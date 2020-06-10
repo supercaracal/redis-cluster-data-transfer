@@ -129,6 +129,14 @@ void printClusterNodes(const Cluster *c) {
   }
 }
 
+static inline int isKeylessCommand(const char *cmd) {
+  while (*cmd != '\0') {
+    if (*cmd == ' ') return 0;
+    ++cmd;
+  }
+  return 1;
+}
+
 int key2slot(const Cluster *cluster, const char *cmd) {
   char cBuf[MAX_CMD_SIZE], kBuf[MAX_KEY_SIZE], *line;
   int slot, ret;
@@ -146,9 +154,9 @@ int key2slot(const Cluster *cluster, const char *cmd) {
   }
 
   line = LAST_LINE2(reply);
-  if (line == NULL || strlen(line) == 0) {
+  if (line == NULL || strlen(line) == 0) {  // FIXME: blank is a bug
     freeReply(&reply);
-    return ANY_NODE_OK;  // FIXME: blank is a bug
+    return ANY_NODE_OK;
   }
 
   snprintf(kBuf, MAX_KEY_SIZE, "%s", line);

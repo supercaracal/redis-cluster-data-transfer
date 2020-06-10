@@ -52,6 +52,5 @@ int command(Conn *, const char *, Reply *);
 int pipeline(Conn *, const char *, Reply *, int);
 void freeReply(Reply *);
 void printReplyLines(const Reply *);
-int isKeylessCommand(const char *);
 
 #endif  // COMMAND_H_

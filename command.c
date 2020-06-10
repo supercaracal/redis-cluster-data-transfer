@@ -42,6 +42,7 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
       fprintf(stderr, "fgets(3): returns NULL, trying to reconnect to %s:%s\n", conn->addr.host, conn->addr.port);
       return reconnect(conn) == MY_OK_CODE ? executeCommand(conn, cmd, reply, n) : MY_ERR_CODE;
     }
+
     // @see https://redis.io/topics/protocol Redis Protocol specification
     if (isBulkStr) {
       // bulk string
@@ -80,6 +81,8 @@ static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
           i += atoi(buf + 1);
           break;
         default:
+          // Not expected token, Skip last remained reply line
+          ++i;
           break;
       }
     }
@@ -134,12 +137,4 @@ void printReplyLines(const Reply *reply) {
         break;
     }
   }
-}
-
-int isKeylessCommand(const char *cmd) {
-  while (*cmd != '\0') {
-    if (*cmd == ' ') return 0;
-    ++cmd;
-  }
-  return 1;
 }
