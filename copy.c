@@ -8,9 +8,16 @@
 #define PIPELINING_SIZE 10
 #endif  // PIPELINING_SIZE
 
+#define ASSERT_RESTORE_DATA(cond, msg) do {\
+  if (!cond) {\
+    fprintf(stderr, "RESTORE: %s\n", msg);\
+    exit(1);\
+  }\
+} while (0)
+
 typedef struct { char buf[MAX_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
 
-static inline void countRestoreResult(const Reply *reply, MigrationResult *result, int expected) {
+static inline void countRestoreResult(const Reply *reply, MigrationResult *result) {
   int i;
 
   for (i = 0; i < reply->i; ++i) {
@@ -23,12 +30,10 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
         result->failed++;
         break;
       default:
-        result->skipped++;  // FIXME(me): legit?
+        ASSERT_RESTORE_DATA(0, reply->lines[i]);
         break;
     }
   }
-
-  if (reply->i < expected) result->failed += expected - reply->i;
 }
 
 static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize, const char *payload, int payloadSize) {
@@ -58,13 +63,8 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
   Reply reply;
   int i;
 
-  if (keyPayloads->i % 2 > 0) {
-    fprintf(stderr, "RESTORE: Keys and payloads were mismatched\n");
-    exit(1);
-  }
-
   for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 2) {
-    if (keyPayloads->types[i+1] != RAW) {
+    if (keyPayloads->types[i+1] == NIL) {
       result->skipped++;
       continue;
     }
@@ -73,7 +73,8 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
 
     commandWithRawData(c, pip.buf, &reply, pip.i);
-    countRestoreResult(&reply, result, pip.cnt);
+    ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply");
+    countRestoreResult(&reply, result);
 
     pip.cnt = pip.i = 0;
     freeReply(&reply);
@@ -94,6 +95,7 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
+      ASSERT_RESTORE_DATA((reply.i == pip.cnt * 2), "key and payload pairs are wrong");
       transferKeys(dest, &reply, result);
     }
     pip.cnt = pip.i = 0;
