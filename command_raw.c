@@ -103,6 +103,7 @@ static inline int parseBulkStringAsBinary(Reply *reply, const char *buf, int siz
   }
   if (reply->nextIdxOfLastLine < reply->sizes[reply->i]) return NEED_MORE_REPLY;
   ADVANCE_REPLY_LINE(reply);
+  while (buf[i] == '\r' || buf[i] == '\n') ++i;
   return i;
 }
 
