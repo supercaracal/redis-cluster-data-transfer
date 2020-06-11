@@ -73,7 +73,7 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
 
     commandWithRawData(c, pip.buf, &reply, pip.i);
-    ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply");
+    ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
     countRestoreResult(&reply, result);
 
     pip.cnt = pip.i = 0;

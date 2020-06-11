@@ -124,7 +124,7 @@ void printReplyLines(const Reply *reply) {
       case STRING:
       case INTEGER:
       case ERR:
-        fprintf(stderr, "%s\n",  reply->lines[i]);
+        printf("%s\n",  reply->lines[i]);
         break;
       case RAW:
         PRINT_BINARY(reply->lines[i], reply->sizes[i]);

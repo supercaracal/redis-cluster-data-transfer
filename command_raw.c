@@ -76,18 +76,10 @@ static void parseRawReply(const char *buf, Reply *reply, int size) {
   }
 }
 
-int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
+int tryToReadFromSocket(Conn *conn, void *buf) {
   int sock, ret;
-  char buf[MAX_RECV_SIZE];
 
-  fflush(conn->fw);
-  sock = fileno(conn->fw);
-
-  ret = send(sock, cmd, size, 0);
-  if (ret == -1) {
-    perror("send(2)");
-    return reconnect(conn) == MY_OK_CODE ? commandWithRawData(conn, cmd, reply, size) : MY_ERR_CODE;
-  }
+  sock = fileno(conn->fr);
 
   ret = recv(sock, buf, MAX_RECV_SIZE, 0);
   if (ret == -1) {
@@ -98,6 +90,34 @@ int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
     fprintf(stderr, "recv(2): returns 0: %s:%s\n", conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
+
+  return ret;
+}
+
+int tryToWriteToSocket(Conn *conn, const void *buf, int size) {
+  int sock, ret;
+
+  fflush(conn->fw);
+  sock = fileno(conn->fw);
+
+  ret = send(sock, buf, size, 0);
+  if (ret == -1) {
+    perror("send(2)");
+    return reconnect(conn) == MY_OK_CODE ? tryToWriteToSocket(conn, buf, size) : MY_ERR_CODE;
+  }
+
+  return ret;
+}
+
+int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
+  int ret;
+  char buf[MAX_RECV_SIZE];
+
+  ret = tryToWriteToSocket(conn, cmd, size);
+  if (ret == MY_ERR_CODE) return ret;
+
+  ret = tryToReadFromSocket(conn, buf);
+  if (ret == MY_ERR_CODE) return ret;
 
   parseRawReply(buf, reply, ret);
 
