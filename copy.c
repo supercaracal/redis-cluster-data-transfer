@@ -9,7 +9,7 @@
 #endif  // PIPELINING_SIZE
 
 #define ASSERT_RESTORE_DATA(cond, msg) do {\
-  if (!cond) {\
+  if (!(cond)) {\
     fprintf(stderr, "RESTORE: %s\n", msg);\
     exit(1);\
   }\
@@ -73,6 +73,7 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
 
     commandWithRawData(c, pip.buf, &reply, pip.i);
+    while (reply.i < pip.cnt) readRemainedReplyLines(c, &reply);
     ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
     countRestoreResult(&reply, result);
 
@@ -95,6 +96,7 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
+      while (reply.i < pip.cnt * 2) readRemainedReplyLines(src, &reply);
       ASSERT_RESTORE_DATA((reply.i == pip.cnt * 2), "key and payload pairs are wrong");
       transferKeys(dest, &reply, result);
     }

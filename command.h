@@ -11,15 +11,22 @@
 #define LAST_LINE(r) (r->i > 0 ? r->lines[r->i - 1] : NULL)
 #define LAST_LINE2(r) (r.i > 0 ? r.lines[r.i - 1] : NULL)
 
+#define INIT_REPLY_LINE(r) do {\
+  r->lines[r->i] = NULL;\
+  r->types[r->i] = UNKNOWN;\
+  r->sizes[r->i] = 0;\
+} while (0)
+
 #define INIT_REPLY(r) do {\
   r->size = DEFAULT_REPLY_LINES;\
-  r->i = 0;\
+  r->i = r->nextIdxOfLastLine = 0;\
   r->lines = (char **) malloc(sizeof(char *) * r->size);\
   ASSERT_MALLOC(r->lines, "for init reply lines");\
   r->types = (ReplyType *) malloc(sizeof(ReplyType) * r->size);\
   ASSERT_MALLOC(r->types, "for init reply types");\
   r->sizes = (int *) malloc(sizeof(int) * r->size);\
   ASSERT_MALLOC(r->sizes, "for init reply sizes");\
+  INIT_REPLY_LINE(r);\
 } while (0)
 
 #define EXPAND_REPLY_IF_NEEDED(r) do {\
@@ -38,15 +45,21 @@
   }\
 } while (0)
 
-#define ADD_NULL_REPLY(reply) do {\
-  reply->sizes[reply->i] = 0;\
-  reply->lines[reply->i] = NULL;\
-  reply->types[reply->i] = NIL;\
+#define ADVANCE_REPLY_LINE(r) do {\
   reply->i++;\
+  reply->nextIdxOfLastLine = 0;\
+  INIT_REPLY_LINE(r);\
 } while (0)
 
-typedef enum { STRING, INTEGER, RAW, ERR, NIL } ReplyType;
-typedef struct { int size, i, *sizes; char **lines; ReplyType *types; } Reply;
+#define ADD_NULL_REPLY(r) do {\
+  r->sizes[r->i] = 0;\
+  r->lines[r->i] = NULL;\
+  r->types[r->i] = NIL;\
+  ADVANCE_REPLY_LINE(r);\
+} while (0)
+
+typedef enum { UNKNOWN, STRING, INTEGER, RAW, ERR, NIL } ReplyType;
+typedef struct { int size, i, nextIdxOfLastLine, *sizes; char **lines; ReplyType *types; } Reply;
 
 int command(Conn *, const char *, Reply *);
 int pipeline(Conn *, const char *, Reply *, int);

@@ -4,84 +4,40 @@
 #include "./command.h"
 #include "./command_raw.h"
 
-#define MAX_RECV_SIZE (1 << 16)
+#define MAX_RECV_SIZE (1 << 12)
+#define NEED_MORE_REPLY -2
+#define MAX_RECONNECT_ATTEMPT 3
 
-static inline int copyReplyLineFromMultiLine(Reply *reply, const char *buf, int size, ReplyType t) {
-  int i;
+#define ASSERT_REPLY_PARSE(cond, msg) do {\
+  if (!(cond)) {\
+    fprintf(stderr, "Failed to parse for reply: %s\n", (msg));\
+    exit(1);\
+  }\
+} while (0)
 
-  reply->lines[reply->i] = (char *) malloc(sizeof(char) * size);
-  ASSERT_MALLOC(reply->lines[reply->i], "for new reply line from multi lines");
-  for (i = 0; buf[i] != '\r' && buf[i] != '\n'; ++i) reply->lines[reply->i][i] = buf[i];
-  reply->lines[reply->i][i] = '\0';
-  for (; buf[i] == '\r' && buf[i] == '\n'; ++i) {}
-  reply->types[reply->i] = t;
-  reply->sizes[reply->i] = i;
-  reply->i++;
-  return i;
-}
+static int tryToWriteToSocket(Conn *conn, const void *buf, int size, int attempt) {
+  int sock, ret;
 
-static inline int copyReplyLinesFromMultiLine(Reply *reply, const char *buf, int size) {
-  int i;
+  if (attempt <= 0) return MY_ERR_CODE;
 
-  reply->sizes[reply->i] = size;
-  reply->types[reply->i] = RAW;
-  reply->lines[reply->i] = (char *) malloc(sizeof(char) * (size + 1));
-  ASSERT_MALLOC(reply->lines[reply->i], "for new reply lines from multi lines");
-  for (i = 0; i < size; ++i) reply->lines[reply->i][i] = buf[i];
-  reply->i++;
-  return size;
-}
+  fflush(conn->fw);
+  sock = fileno(conn->fw);
 
-static void parseRawReply(const char *buf, Reply *reply, int size) {
-  int i, j, n;
-  char tmp[DEFAULT_REPLY_SIZE];
-
-  INIT_REPLY(reply);
-  for (i = 0; i < size; ++i) {
-    EXPAND_REPLY_IF_NEEDED(reply);
-    switch (buf[i]) {
-      case '+':
-        ++i;
-        i += copyReplyLineFromMultiLine(reply, &buf[i], DEFAULT_REPLY_SIZE, STRING);
-        break;
-      case '-':
-        ++i;
-        i += copyReplyLineFromMultiLine(reply, &buf[i], DEFAULT_REPLY_SIZE, ERR);
-        break;
-      case ':':
-        ++i;
-        i += copyReplyLineFromMultiLine(reply, &buf[i], DEFAULT_REPLY_SIZE, INTEGER);
-        break;
-      case '$':
-        ++i;
-        for (j = 0; buf[i] != '\r'; ++j, ++i) tmp[j] = buf[i];
-        tmp[j] = '\0';
-        ++i;  // \n
-        n = atoi(tmp);
-        if (n >= 0) {
-          i += copyReplyLinesFromMultiLine(reply, &buf[i + 1], n);
-        } else if (n == -1) {
-          ADD_NULL_REPLY(reply);
-        }
-        break;
-      case '*':
-        // TODO(me): impl
-        while (buf[i] != '\r') ++i;
-        ++i;  // \n
-        break;
-      default:
-        // not expected token
-        break;
-    }
+  ret = send(sock, buf, size, 0);
+  if (ret == -1) {
+    perror("send(2)");
+    return reconnect(conn) == MY_OK_CODE ? tryToWriteToSocket(conn, buf, size, attempt - 1) : MY_ERR_CODE;
   }
+
+  return ret;
 }
 
-int tryToReadFromSocket(Conn *conn, void *buf) {
+static int tryToReadFromSocket(Conn *conn, void *buf, int size) {
   int sock, ret;
 
   sock = fileno(conn->fr);
 
-  ret = recv(sock, buf, MAX_RECV_SIZE, 0);
+  ret = recv(sock, buf, size, 0);
   if (ret == -1) {
     perror("recv(2)");
     return MY_ERR_CODE;
@@ -94,32 +50,121 @@ int tryToReadFromSocket(Conn *conn, void *buf) {
   return ret;
 }
 
-int tryToWriteToSocket(Conn *conn, const void *buf, int size) {
-  int sock, ret;
+static inline void appendSimpleStringChar(Reply *reply, char c) {
+  ASSERT_REPLY_PARSE((reply->types[reply->i] == STRING ||
+        reply->types[reply->i] == ERR || reply->types[reply->i] == INTEGER), "not simple string type");
 
-  fflush(conn->fw);
-  sock = fileno(conn->fw);
-
-  ret = send(sock, buf, size, 0);
-  if (ret == -1) {
-    perror("send(2)");
-    return reconnect(conn) == MY_OK_CODE ? tryToWriteToSocket(conn, buf, size) : MY_ERR_CODE;
+  if (reply->lines[reply->i] == NULL) {
+    reply->lines[reply->i] = (char *) malloc(sizeof(char) * DEFAULT_REPLY_SIZE);
+    ASSERT_MALLOC(reply->lines[reply->i], "for new reply line of simple string");
   }
+  if (c == '\r') return;
+  reply->sizes[reply->i]++;
+  if (c == '\n') {
+    reply->lines[reply->i][reply->nextIdxOfLastLine] = '\0';
+    ADVANCE_REPLY_LINE(reply);
+    return;
+  }
+  reply->lines[reply->i][reply->nextIdxOfLastLine] = c;
+  reply->nextIdxOfLastLine++;
+}
 
-  return ret;
+static inline int parseBulkStringLength(const char *buf, int size, Reply *reply) {
+  char tmp[DEFAULT_REPLY_SIZE];
+  int i, n;
+
+  for (i = 0; buf[i] != '\n' && i < size; ++i) tmp[i] = buf[i];
+  tmp[i] = '\0';
+  n = atoi(tmp);
+  if (n >= 0) {
+    reply->sizes[reply->i] = n;
+    reply->types[reply->i] = RAW;
+    if (i == size) return NEED_MORE_REPLY;
+    ASSERT_REPLY_PARSE((buf[i] == '\n'), "lack of bulk string length");
+  } else if (n == -1) {
+    ADD_NULL_REPLY(reply);
+  } else {
+    ASSERT_REPLY_PARSE(0, "not expected negative size for bulk string");
+  }
+  return i;
+}
+
+static inline int parseBulkStringAsBinary(Reply *reply, const char *buf, int size) {
+  int i;
+
+  ASSERT_REPLY_PARSE((reply->types[reply->i] == RAW), "not raw type");
+
+  if (reply->lines[reply->i] == NULL) {
+    reply->lines[reply->i] = (char *) malloc(sizeof(char) * reply->sizes[reply->i]);
+    ASSERT_MALLOC(reply->lines[reply->i], "for new reply of binary");
+  }
+  for (i = 0; reply->nextIdxOfLastLine < reply->sizes[reply->i] && i < size; ++i) {
+    reply->lines[reply->i][reply->nextIdxOfLastLine++] = buf[i];
+  }
+  if (reply->nextIdxOfLastLine < reply->sizes[reply->i]) return NEED_MORE_REPLY;
+  ADVANCE_REPLY_LINE(reply);
+  return i;
+}
+
+static int parseRawReply(const char *buf, int size, Reply *reply) {
+  int i, ret;
+
+  for (i = 0; i < size; ++i) {
+    EXPAND_REPLY_IF_NEEDED(reply);
+    if (reply->types[reply->i] == RAW) {
+      ret = parseBulkStringAsBinary(reply, &buf[i], size - i);
+      if (ret == NEED_MORE_REPLY) return ret;
+      i += ret;
+    } else {
+      switch (buf[i]) {
+        case '+':
+          reply->types[reply->i] = STRING;
+          break;
+        case '-':
+          reply->types[reply->i] = ERR;
+          break;
+        case ':':
+          reply->types[reply->i] = INTEGER;
+          break;
+        case '$':
+          ++i;
+          ret = parseBulkStringLength(&buf[i], size - i, reply);
+          if (ret == NEED_MORE_REPLY) return ret;
+          i += ret;
+          break;
+        case '*':
+          // TODO(me): implement for nested array if needed
+          while (buf[i] != '\n' && i < size) ++i;
+          if (i == size) return NEED_MORE_REPLY;
+          break;
+        default:
+          appendSimpleStringChar(reply, buf[i]);
+          break;
+      }
+    }
+  }
+  return MY_OK_CODE;
 }
 
 int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
   int ret;
+
+  ret = tryToWriteToSocket(conn, cmd, size, MAX_RECONNECT_ATTEMPT);
+  if (ret == MY_ERR_CODE) return ret;
+
+  INIT_REPLY(reply);
+  return readRemainedReplyLines(conn, reply);
+}
+
+int readRemainedReplyLines(Conn *conn, Reply *reply) {
+  int ret;
   char buf[MAX_RECV_SIZE];
 
-  ret = tryToWriteToSocket(conn, cmd, size);
+  ret = tryToReadFromSocket(conn, buf, MAX_RECV_SIZE);
   if (ret == MY_ERR_CODE) return ret;
 
-  ret = tryToReadFromSocket(conn, buf);
-  if (ret == MY_ERR_CODE) return ret;
-
-  parseRawReply(buf, reply, ret);
+  ret = parseRawReply(buf, ret, reply);
+  if (ret == NEED_MORE_REPLY) readRemainedReplyLines(conn, reply);
 
   return MY_OK_CODE;
 }
