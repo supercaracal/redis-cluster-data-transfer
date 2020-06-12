@@ -116,33 +116,32 @@ static inline void parseSimpleStringChar(Reply *reply, char c) {
   }
 }
 
-static inline int parseBulkStringAsBinary(Reply *reply, const char *buf, int size) {
-  int i;
-
+static inline void parseBulkStringAsBinary(Reply *reply, char c) {
   ASSERT_REPLY_PARSE((reply->types[reply->i] == RAW), "not raw type");
+
+  if (reply->nextIdxOfLastLine == reply->sizes[reply->i]) {
+    if (c == '\r') return;  // skip
+    if (c == '\n') {
+      // completed
+      ADVANCE_REPLY_LINE(reply);
+      return;
+    }
+  }
 
   if (reply->lines[reply->i] == NULL) {
     reply->lines[reply->i] = (char *) malloc(sizeof(char) * reply->sizes[reply->i]);
     ASSERT_MALLOC(reply->lines[reply->i], "for new reply of binary");
   }
-  for (i = 0; reply->nextIdxOfLastLine < reply->sizes[reply->i] && i < size; ++i) {
-    reply->lines[reply->i][reply->nextIdxOfLastLine++] = buf[i];
-  }
-  if (reply->nextIdxOfLastLine < reply->sizes[reply->i]) return NEED_MORE_REPLY;
-  ADVANCE_REPLY_LINE(reply);
-  while (buf[i] == '\r' || buf[i] == '\n') ++i;
-  return i - 1;
+
+  reply->lines[reply->i][reply->nextIdxOfLastLine] = c;
+  reply->nextIdxOfLastLine++;
 }
 
 static int parseRawReply(const char *buf, int size, Reply *reply) {
-  int i, ret;
+  int i;
 
   for (i = 0; i < size; ++i) {
-    if (reply->types[reply->i] == RAW) {
-      ret = parseBulkStringAsBinary(reply, &buf[i], size - i);
-      if (ret == NEED_MORE_REPLY) return ret;
-      i += ret;
-    } else {
+    if (reply->types[reply->i] == UNKNOWN) {
       switch (buf[i]) {
         case '+':
           reply->types[reply->i] = STRING;
@@ -160,16 +159,16 @@ static int parseRawReply(const char *buf, int size, Reply *reply) {
           reply->types[reply->i] = TMPARR;
           break;
         default:
-          parseSimpleStringChar(reply, buf[i]);
           break;
       }
+    } else if (reply->types[reply->i] == RAW) {
+      parseBulkStringAsBinary(reply, buf[i]);
+    } else {
+      parseSimpleStringChar(reply, buf[i]);
     }
   }
 
-  if (reply->types[reply->i] == TMPBULKSTR) return NEED_MORE_REPLY;
-  if (reply->types[reply->i] == TMPARR) return NEED_MORE_REPLY;
-
-  return MY_OK_CODE;
+  return reply->types[reply->i] == UNKNOWN ? MY_OK_CODE : NEED_MORE_REPLY;
 }
 
 int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {

@@ -64,10 +64,12 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
   int i;
 
   for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 2) {
+    ASSERT_RESTORE_DATA((keyPayloads->types[i] == RAW), "must be a key");
     if (keyPayloads->types[i+1] == NIL) {
       result->skipped++;
       continue;
     }
+    ASSERT_RESTORE_DATA((keyPayloads->types[i+1] == RAW), "must be a payload");
 
     appendRestoreCmd(&pip, keyPayloads->lines[i], keyPayloads->sizes[i], keyPayloads->lines[i+1], keyPayloads->sizes[i+1]);
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
@@ -100,6 +102,7 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
       ASSERT_RESTORE_DATA((reply.i == pip.cnt * 2), "key and payload pairs are wrong");
       transferKeys(dest, &reply, result);
     }
+
     pip.cnt = pip.i = 0;
     freeReply(&reply);
   }
