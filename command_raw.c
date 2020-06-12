@@ -159,6 +159,7 @@ static int parseRawReply(const char *buf, int size, Reply *reply) {
           reply->types[reply->i] = TMPARR;
           break;
         default:
+          ASSERT_REPLY_PARSE(0, "not expected token");
           break;
       }
     } else if (reply->types[reply->i] == RAW) {
