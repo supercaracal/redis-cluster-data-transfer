@@ -21,9 +21,10 @@ I need a copy tool.
   * For counting keys in a slot
 * [CLUSTER GETKEYSINSLOT](https://redis.io/commands/cluster-getkeysinslot)
   * For listing keys in a slot
-* [MIGRATE](https://redis.io/commands/migrate)
-  * For copying a key from source to destination
-  * Blocking occurs
+* [DUMP](https://redis.io/commands/dump)
+  * For fetching a key from source node
+* [RESTORE](https://redis.io/commands/restore)
+  * For transferring a key to destination node
 
 ## Not supported
 * AUTH
@@ -78,7 +79,7 @@ $ bin/exe 127.0.0.1:16371 127.0.0.1:16381 -C
 ```
 
 ## Performance
-It takes approximately 50 minutes while 12 million keys are copied.
+It takes approximately 5 minutes while 10 million keys are copied.
 
 ## See also
 * [Netflix/dynomite](https://github.com/Netflix/dynomite)
