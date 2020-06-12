@@ -6,7 +6,6 @@
 
 #define MAX_RECV_SIZE (1 << 12)
 #define NEED_MORE_REPLY -2
-#define MAX_RECONNECT_ATTEMPT 3
 
 #define ASSERT_REPLY_PARSE(cond, msg) do {\
   if (!(cond)) {\
@@ -15,10 +14,8 @@
   }\
 } while (0)
 
-static int tryToWriteToSocket(Conn *conn, const void *buf, int size, int attempt) {
+static int tryToWriteToSocket(Conn *conn, const void *buf, int size) {
   int sock, ret;
-
-  if (attempt <= 0) return MY_ERR_CODE;
 
   fflush(conn->fw);
   sock = fileno(conn->fw);
@@ -26,7 +23,8 @@ static int tryToWriteToSocket(Conn *conn, const void *buf, int size, int attempt
   ret = send(sock, buf, size, 0);
   if (ret == -1) {
     perror("send(2)");
-    return reconnect(conn) == MY_OK_CODE ? tryToWriteToSocket(conn, buf, size, attempt - 1) : MY_ERR_CODE;
+    fprintf(stderr, "send(2): %s:%s\n", conn->addr.host, conn->addr.port);
+    return MY_ERR_CODE;
   }
 
   return ret;
@@ -40,6 +38,7 @@ static int tryToReadFromSocket(Conn *conn, void *buf, int size) {
   ret = recv(sock, buf, size, 0);
   if (ret == -1) {
     perror("recv(2)");
+    fprintf(stderr, "recv(2): %s:%s\n", conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
   if (ret == 0) {
@@ -175,7 +174,7 @@ static int parseRawReply(const char *buf, int size, Reply *reply) {
 int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
   int ret;
 
-  ret = tryToWriteToSocket(conn, cmd, size, MAX_RECONNECT_ATTEMPT);
+  ret = tryToWriteToSocket(conn, cmd, size);
   if (ret == MY_ERR_CODE) return ret;
 
   INIT_REPLY(reply);
