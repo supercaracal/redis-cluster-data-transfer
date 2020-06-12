@@ -1,7 +1,7 @@
 Redis Cluster Data Transfer ![](https://github.com/supercaracal/redis-cluster-data-transfer/workflows/Test/badge.svg?branch=master)
 =================================
 
-This tool copies all keys from a Redis cluster to another cluster as able as possible by command.
+This tool copies all keys from a Redis cluster to another one as able as possible by command.
 
 I want to migrate my redis cluster from 3 to 5.  
 Official Redis client has migration feature but source data is deleted.  
