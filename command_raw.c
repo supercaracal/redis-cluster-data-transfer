@@ -50,43 +50,70 @@ static int tryToReadFromSocket(Conn *conn, void *buf, int size) {
   return ret;
 }
 
-static inline void appendSimpleStringChar(Reply *reply, char c) {
-  ASSERT_REPLY_PARSE((reply->types[reply->i] == STRING ||
-        reply->types[reply->i] == ERR || reply->types[reply->i] == INTEGER), "not simple string type");
+static inline void finalizeSimpleString(Reply *reply) {
+  int n;
+
+  switch (reply->types[reply->i]) {
+    case STRING:
+    case ERR:
+    case INTEGER:
+      reply->lines[reply->i][reply->nextIdxOfLastLine] = '\0';
+      ADVANCE_REPLY_LINE(reply);
+      break;
+    case TMPBULKSTR:
+      n = atoi(reply->lines[reply->i]);
+      if (n >= 0) {
+        free(reply->lines[reply->i]);
+        INIT_REPLY_LINE(reply);
+        reply->sizes[reply->i] = n;
+        reply->types[reply->i] = RAW;
+      } else if (n == -1) {
+        ADD_NULL_REPLY(reply);
+      } else {
+        ASSERT_REPLY_PARSE(0, "not expected negative size for bulk string");
+      }
+      break;
+    case TMPARR:
+      // TODO(me): implement here if needed for treating nested array
+      free(reply->lines[reply->i]);
+      INIT_REPLY_LINE(reply);
+      break;
+    default:
+      ASSERT_REPLY_PARSE(0, "failed to finalize as simple string");
+      break;
+  }
+}
+
+static inline void parseSimpleStringChar(Reply *reply, char c) {
+  int isSimpleStrType =
+    reply->types[reply->i] == STRING ||
+    reply->types[reply->i] == ERR ||
+    reply->types[reply->i] == INTEGER;
+
+  int isMetaType =
+    reply->types[reply->i] == TMPBULKSTR ||
+    reply->types[reply->i] == TMPARR;
+
+  ASSERT_REPLY_PARSE((isSimpleStrType || isMetaType), "could not treat as a simple string");
 
   if (reply->lines[reply->i] == NULL) {
     reply->lines[reply->i] = (char *) malloc(sizeof(char) * DEFAULT_REPLY_SIZE);
     ASSERT_MALLOC(reply->lines[reply->i], "for new reply line of simple string");
   }
-  if (c == '\r') return;
-  reply->sizes[reply->i]++;
-  if (c == '\n') {
-    reply->lines[reply->i][reply->nextIdxOfLastLine] = '\0';
-    ADVANCE_REPLY_LINE(reply);
-    return;
-  }
-  reply->lines[reply->i][reply->nextIdxOfLastLine] = c;
-  reply->nextIdxOfLastLine++;
-}
 
-static inline int parseBulkStringLength(const char *buf, int size, Reply *reply) {
-  char tmp[DEFAULT_REPLY_SIZE];
-  int i, n;
-
-  for (i = 0; buf[i] != '\n' && i < size; ++i) tmp[i] = buf[i];
-  tmp[i] = '\0';
-  n = atoi(tmp);
-  if (n >= 0) {
-    reply->sizes[reply->i] = n;
-    reply->types[reply->i] = RAW;
-    if (i == size) return NEED_MORE_REPLY;
-    ASSERT_REPLY_PARSE((buf[i] == '\n'), "lack of bulk string length");
-  } else if (n == -1) {
-    ADD_NULL_REPLY(reply);
-  } else {
-    ASSERT_REPLY_PARSE(0, "not expected negative size for bulk string");
+  switch (c) {
+    case '\r':
+      // skip
+      break;
+    case '\n':
+      finalizeSimpleString(reply);
+      break;
+    default:
+      reply->lines[reply->i][reply->nextIdxOfLastLine] = c;
+      reply->nextIdxOfLastLine++;
+      reply->sizes[reply->i]++;
+      break;
   }
-  return i;
 }
 
 static inline int parseBulkStringAsBinary(Reply *reply, const char *buf, int size) {
@@ -104,14 +131,13 @@ static inline int parseBulkStringAsBinary(Reply *reply, const char *buf, int siz
   if (reply->nextIdxOfLastLine < reply->sizes[reply->i]) return NEED_MORE_REPLY;
   ADVANCE_REPLY_LINE(reply);
   while (buf[i] == '\r' || buf[i] == '\n') ++i;
-  return i;
+  return i - 1;
 }
 
 static int parseRawReply(const char *buf, int size, Reply *reply) {
   int i, ret;
 
   for (i = 0; i < size; ++i) {
-    EXPAND_REPLY_IF_NEEDED(reply);
     if (reply->types[reply->i] == RAW) {
       ret = parseBulkStringAsBinary(reply, &buf[i], size - i);
       if (ret == NEED_MORE_REPLY) return ret;
@@ -128,22 +154,21 @@ static int parseRawReply(const char *buf, int size, Reply *reply) {
           reply->types[reply->i] = INTEGER;
           break;
         case '$':
-          ++i;
-          ret = parseBulkStringLength(&buf[i], size - i, reply);
-          if (ret == NEED_MORE_REPLY) return ret;
-          i += ret;
+          reply->types[reply->i] = TMPBULKSTR;
           break;
         case '*':
-          // TODO(me): implement for nested array if needed
-          while (buf[i] != '\n' && i < size) ++i;
-          if (i == size) return NEED_MORE_REPLY;
+          reply->types[reply->i] = TMPARR;
           break;
         default:
-          appendSimpleStringChar(reply, buf[i]);
+          parseSimpleStringChar(reply, buf[i]);
           break;
       }
     }
   }
+
+  if (reply->types[reply->i] == TMPBULKSTR) return NEED_MORE_REPLY;
+  if (reply->types[reply->i] == TMPARR) return NEED_MORE_REPLY;
+
   return MY_OK_CODE;
 }
 

@@ -15,11 +15,12 @@
   r->lines[r->i] = NULL;\
   r->types[r->i] = UNKNOWN;\
   r->sizes[r->i] = 0;\
+  r->nextIdxOfLastLine = 0;\
 } while (0)
 
 #define INIT_REPLY(r) do {\
   r->size = DEFAULT_REPLY_LINES;\
-  r->i = r->nextIdxOfLastLine = 0;\
+  r->i = 0;\
   r->lines = (char **) malloc(sizeof(char *) * r->size);\
   ASSERT_MALLOC(r->lines, "for init reply lines");\
   r->types = (ReplyType *) malloc(sizeof(ReplyType) * r->size);\
@@ -47,7 +48,7 @@
 
 #define ADVANCE_REPLY_LINE(r) do {\
   reply->i++;\
-  reply->nextIdxOfLastLine = 0;\
+  EXPAND_REPLY_IF_NEEDED(r);\
   INIT_REPLY_LINE(r);\
 } while (0)
 
@@ -58,7 +59,7 @@
   ADVANCE_REPLY_LINE(r);\
 } while (0)
 
-typedef enum { UNKNOWN, STRING, INTEGER, RAW, ERR, NIL } ReplyType;
+typedef enum { UNKNOWN, STRING, INTEGER, RAW, ERR, NIL, TMPBULKSTR, TMPARR } ReplyType;
 typedef struct { int size, i, nextIdxOfLastLine, *sizes; char **lines; ReplyType *types; } Reply;
 
 int command(Conn *, const char *, Reply *);
