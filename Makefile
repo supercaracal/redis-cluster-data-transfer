@@ -1,13 +1,14 @@
-CC   := gcc
-SRCS := command net cluster
-OBJS := $(addsuffix .o,$(SRCS))
+CC    := gcc
+SHELL := /bin/bash
+SRCS  := command command_raw net cluster copy
+OBJS  := $(addsuffix .o,$(SRCS))
 
 CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
 CFLAGS += -Wall -Wextra -Wpedantic
 
 WORKER   ?= 8
-TIMEOUT  ?= 30
-PIPELINE ?= 100
+TIMEOUT  ?= 5
+PIPELINE ?= 10
 
 define link
 	@mkdir -p bin
@@ -52,7 +53,14 @@ bin/dcli: CPPFLAGS += -DDEBUG
 bin/dcli: client.o $(OBJS)
 	$(call link)
 
+lint:
+	@type cpplint
+	@cpplint *.h *.c
+
+test:
+	@echo TODO
+
 clean:
 	@rm -rf bin *.o
 
-.PHONY: build debug clean
+.PHONY: build debug lint test clean

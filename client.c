@@ -28,21 +28,21 @@ static char *trim(char *str) {
   char *head;
 
   if (str == NULL) return str;
-  while (*str == ' ') ++str;
+  while (*str == '\n' || *str == '\r' || *str == ' ' || *str == '\t') ++str;
   head = str;
   while (*str != '\0') ++str;
-  --str;
-  while (*str == '\n' || *str == '\r' || *str == ' ') --str;
-  *(++str) = '\0';
+  if (head != str) --str;
+  while (*str == '\n' || *str == '\r' || *str == ' ' || *str == '\t') --str;
+  if (head != str) *(++str) = '\0';
 
   return head;
 }
 
 int main(int argc, char **argv) {
   char buf[MAX_CMD_SIZE], *cmd;
+  int ret;
   Cluster cluster;
   Reply reply;
-  int ret;
 
   if (argc != 2) {
     fprintf(stderr, "Usage: bin/cli host:port\n");
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
   printClusterNodes(&cluster);
 
   while (1) {
-    printf("cli> ");
+    printf(">> ");
 
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
       fprintf(stderr, "fgets(3)\n");
@@ -61,6 +61,8 @@ int main(int argc, char **argv) {
     }
 
     cmd = trim(buf);
+    if (cmd[0] == '\0') continue;
+
     ret = execute(&cluster, cmd, &reply);
     if (ret == MY_ERR_CODE) {
       freeReply(&reply);

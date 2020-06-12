@@ -6,40 +6,41 @@
 
 #define MY_OK_CODE 0
 #define MY_ERR_CODE -1
-#define ANY_NODE_OK -2
-#define MAX_HOST_SIZE 256
-#define MAX_PORT_SIZE 8
-#define MAX_CMD_SIZE 4096
-#define MAX_KEY_SIZE 256
-#define CLUSTER_SLOT_SIZE 16384
 
 #define ASSERT(ret) do {\
-  if (ret == MY_ERR_CODE) exit(1);\
+  if ((ret) == MY_ERR_CODE) exit(1);\
 } while (0)
 
 #define ASSERT_MALLOC(p, msg) do {\
-  if (p == NULL) {\
-    fprintf(stderr, "malloc(3): %s\n", msg);\
+  if ((p) == NULL) {\
+    fprintf(stderr, "malloc(3): %s\n", (msg));\
     exit(1);\
   }\
 } while (0)
 
 #define ASSERT_REALLOC(p, msg) do {\
-  if (p == NULL) {\
-    fprintf(stderr, "realloc(3): %s\n", msg);\
+  if ((p) == NULL) {\
+    fprintf(stderr, "realloc(3): %s\n", (msg));\
     exit(1);\
   }\
 } while (0)
 
-#define LAST_LINE(r) (r->i > 0 ? r->lines[r->i - 1] : NULL)
-#define LAST_LINE2(r) (r.i > 0 ? r.lines[r.i - 1] : NULL)
-#define FIND_CONN(c, i) (c->nodes[c->slots[i]])
-#define FIND_CONN2(c, i) (c.nodes[c.slots[i]])
+#define PRINT_BINARY(line, size) do {\
+  int i;\
+  for (i = 0; i < (size); ++i) {\
+    printf("%02x ", ((unsigned char *) line)[i]);\
+  }\
+} while (0)
 
-typedef struct { char host[MAX_HOST_SIZE], port[MAX_PORT_SIZE]; } HostPort;
-typedef struct { FILE *fw, *fr; HostPort addr; } Conn;
-typedef struct { int size, i; Conn **nodes; int slots[CLUSTER_SLOT_SIZE]; } Cluster;
-typedef enum { STRING, INTEGER } ReplyType;
-typedef struct { int size, i, err; char **lines; ReplyType *types; } Reply;
+#define PRINT_MIXED_BINARY(buf, size) do {\
+  int i;\
+  for (i = 0; i < (size); ++i) {\
+    if ((' ' <= buf[i] && buf[i] <= '~') || buf[i] == '\r' || buf[i] == '\n') {\
+      printf("%c", buf[i]);\
+    } else {\
+      printf("%02x", ((unsigned char *) buf)[i]);\
+    }\
+  }\
+} while (0)
 
-#endif // GENERIC_H_
+#endif  // GENERIC_H_

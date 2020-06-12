@@ -29,6 +29,7 @@ I need a copy tool.
 * AUTH
 * SSL
 * RESP3
+* Windows
 
 so on and so forth
 

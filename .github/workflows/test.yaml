@@ -19,9 +19,26 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v1
-      - name: Make
-        run: make
-      - name: Make clean
+
+      - name: Build
+        run: make build
+
+      - name: Clean
         run: make clean
-      - name: Make debug
+
+      - name: Debug
         run: make debug
+
+      - name: Test
+        run: make test
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install cpplint
+        run: pip install cpplint
+
+      - name: Lint
+        run: make lint

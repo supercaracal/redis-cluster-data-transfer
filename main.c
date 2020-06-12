@@ -2,108 +2,31 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
-#include <string.h>
 #include "./generic.h"
 #include "./net.h"
-#include "./command.h"
 #include "./cluster.h"
-
-#define MIGRATE_CMD_TIMEOUT 30000
+#include "./copy.h"
 
 #ifndef MAX_CONCURRENCY
 #define MAX_CONCURRENCY 4
-#endif // MAX_CONCURRENCY
+#endif  // MAX_CONCURRENCY
 
-#define MAX_MIGRATE_CMD_SIZE 2000
-
-#ifndef PIPELINING_SIZE
-#define PIPELINING_SIZE 10
-#endif // PIPELINING_SIZE
-
-typedef struct { int copied, skipped, failed, found; } MigrationResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot, dryRun; MigrationResult *result; } WorkerArgs;
-typedef struct { char buf[MAX_MIGRATE_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
-
-static int countKeysInSlot(Conn *conn, int slot) {
-  char buf[MAX_CMD_SIZE], *line;
-  int ret;
-  Reply reply;
-
-  snprintf(buf, MAX_CMD_SIZE, "CLUSTER COUNTKEYSINSLOT %d", slot);
-  ret = command(conn, buf, &reply);
-  if (ret == MY_ERR_CODE) {
-    freeReply(&reply);
-    return ret;
-  }
-
-  line = LAST_LINE2(reply);
-  ret = line == NULL ? 0 : atoi(line);
-  freeReply(&reply);
-
-  return ret;
-}
-
-static void copyKeys(Conn *c, Pipeline *pip, MigrationResult *result) {
-  int i;
-  Reply reply;
-
-  pip->buf[pip->i] = '\0';
-  pipeline(c, pip->buf, &reply, pip->cnt);
-  for (i = 0; i < reply.i; ++i) {
-    if (strncmp(reply.lines[i], "OK", 2) == 0) {
-      result->copied++;
-    } else if (strncmp(reply.lines[i], "NOKEY", 5) == 0) {
-      result->skipped++;
-    } else {
-      result->failed++;
-    }
-  }
-  pip->cnt = pip->i = 0;
-  freeReply(&reply);
-}
-
-static int migrateKeys(const Cluster *src, const Cluster *dest, int slot, int dryRun, MigrationResult *result) {
-  char buf[MAX_CMD_SIZE];
-  int i, ret;
-  Pipeline pip;
-  Reply reply;
-
-  ret = countKeysInSlot(FIND_CONN(src, slot), slot);
-  if (ret == MY_ERR_CODE) return ret;
-  if (ret == 0) return MY_OK_CODE;
-
-  snprintf(buf, MAX_CMD_SIZE, "CLUSTER GETKEYSINSLOT %d %d", slot, ret);
-  ret = command(FIND_CONN(src, slot), buf, &reply);
-  if (ret == MY_ERR_CODE) {
-    freeReply(&reply);
-    return ret;
-  }
-
-  for (i = pip.i = pip.cnt = 0; i < reply.i; ++i) {
-    if (dryRun) {
-      result->found++;
-      continue;
-    }
-    pip.i += snprintf(&pip.buf[pip.i], MAX_MIGRATE_CMD_SIZE,
-        "MIGRATE %s %s %s 0 %d COPY REPLACE\r\n",
-        FIND_CONN(dest, slot)->addr.host, FIND_CONN(dest, slot)->addr.port, reply.lines[i], MIGRATE_CMD_TIMEOUT);
-    pip.cnt++;
-    if ((i + 1) % PIPELINING_SIZE == 0) copyKeys(FIND_CONN(src, slot), &pip, result);
-  }
-  if (!dryRun && reply.i % PIPELINING_SIZE != 0) copyKeys(FIND_CONN(src, slot), &pip, result);
-
-  freeReply(&reply);
-  return MY_OK_CODE;
-}
 
 static void *workOnATask(void *args) {
-  WorkerArgs *p;
   int i;
+  WorkerArgs *p;
 
   p = (WorkerArgs *) args;
-  printf("%02d: %lu <%lu>: %05d - %05d\n", p->i, (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
   p->result->found = p->result->copied = p->result->skipped = p->result->failed = 0;
-  for (i = p->firstSlot; i <= p->lastSlot; ++i) migrateKeys(p->src, p->dest, i, p->dryRun, p->result);
+
+  printf("%02d: %lu <%lu>: %05d - %05d\n",
+      p->i, (unsigned long) getpid(), (unsigned long) pthread_self(), p->firstSlot, p->lastSlot);
+
+  for (i = p->firstSlot; i <= p->lastSlot; ++i) {
+    copyKeys(FIND_CONN(p->src, i), FIND_CONN(p->dest, i), i, p->result, p->dryRun);
+  }
+
   pthread_exit((void *) p->result);
 }
 
@@ -115,7 +38,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   MigrationResult sum, results[MAX_CONCURRENCY];
 
   if (CLUSTER_SLOT_SIZE % MAX_CONCURRENCY > 0) {
-    fprintf(stderr, "MAX_CONCURRENCY must be %d's divisor: %d given", CLUSTER_SLOT_SIZE, MAX_CONCURRENCY);
+    fprintf(stderr, "MAX_CONCURRENCY must be %d's divisor: %d given\n", CLUSTER_SLOT_SIZE, MAX_CONCURRENCY);
     return MY_ERR_CODE;
   }
 
@@ -137,7 +60,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
 
     ret = pthread_create(&workers[i], NULL, workOnATask, &args[i]);
     if (ret != 0) {
-      fprintf(stderr, "pthread_create(3): Could not create a worker");
+      fprintf(stderr, "pthread_create(3): Could not create a worker\n");
       return MY_ERR_CODE;
     }
   }
@@ -145,7 +68,7 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     ret = pthread_join(workers[i], &tmp);
     if (ret != 0) {
-      fprintf(stderr, "pthread_join(3): Could not join with a thread");
+      fprintf(stderr, "pthread_join(3): Could not join with a thread\n");
       return MY_ERR_CODE;
     }
 
@@ -155,13 +78,10 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
     sum.failed += results[i].failed;
   }
 
-  if (dryRun) {
-    printf("%d keys were found\n", sum.found);
-  } else {
-    printf("%d keys were copied\n", sum.copied);
-    printf("%d keys were skipped\n", sum.skipped);
-    printf("%d keys were failed\n", sum.failed);
-  }
+  printf("%d keys were found\n", sum.found);
+  printf("%d keys were copied\n", sum.copied);
+  printf("%d keys were skipped\n", sum.skipped);
+  printf("%d keys were failed\n", sum.failed);
 
   for (i = 0; i < MAX_CONCURRENCY; ++i) {
     if (freeClusterState(args[i].src) == MY_ERR_CODE) return MY_ERR_CODE;
@@ -175,8 +95,8 @@ static int migrateKeysPerSlot(const Cluster *src, const Cluster *dest, int dryRu
 
 int main(int argc, char **argv) {
   int ret, dryRun;
-  Cluster src, dest;
   struct sigaction sa;
+  Cluster src, dest;
 
   if (argc < 3 || argc > 4) {
     fprintf(stderr, "Usage: bin/exe src-host:port dest-host:port [-C]\n");
@@ -190,7 +110,7 @@ int main(int argc, char **argv) {
   sa.sa_flags = 0;
   sa.sa_handler = SIG_IGN;
   if (sigaction(SIGPIPE, &sa, NULL) < 0) {
-    fprintf(stderr, "sigaction(2): SIGPIPE failed");
+    fprintf(stderr, "sigaction(2): SIGPIPE failed\n");
     exit(1);
   }
 

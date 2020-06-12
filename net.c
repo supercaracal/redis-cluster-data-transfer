@@ -4,11 +4,12 @@
 #include <sys/time.h>
 #include <netdb.h>
 #include <unistd.h>
+#include "./generic.h"
 #include "./net.h"
 
 #ifndef MAX_TIMEOUT_SEC
 #define MAX_TIMEOUT_SEC 5
-#endif // MAX_TIMEOUT_SEC
+#endif  // MAX_TIMEOUT_SEC
 
 static int parseAddress(const char *str, HostPort *addr) {
   int len, i, j;
@@ -117,7 +118,7 @@ int freeConnection(Conn *c) {
   if (fclose(c->fw) == EOF) {
     // perror("fclose(3): for write");
     // return MY_ERR_CODE;
-  };
+  }
   c->fw = NULL;
 
   // FIXME: The socket is shared between write and read. So it is already bad descriptor.

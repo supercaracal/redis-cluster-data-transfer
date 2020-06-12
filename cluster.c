@@ -1,6 +1,6 @@
 #include <string.h>
+#include "./generic.h"
 #include "./cluster.h"
-#include "./net.h"
 #include "./command.h"
 
 #define DEFAULT_NODE_SIZE 8
@@ -30,8 +30,8 @@ static int buildClusterState(const Reply *reply, Cluster *cluster) {
 
     first = atoi(reply->lines[i]);
     last = atoi(reply->lines[i+1]);
-    strcpy(cluster->nodes[cluster->i]->addr.host, reply->lines[i+2]);
-    strcpy(cluster->nodes[cluster->i]->addr.port, reply->lines[i+3]);
+    snprintf(cluster->nodes[cluster->i]->addr.host, MAX_HOST_SIZE, "%s", reply->lines[i+2]);
+    snprintf(cluster->nodes[cluster->i]->addr.port, MAX_PORT_SIZE, "%s", reply->lines[i+3]);
 
     for (j = first; j <= last; ++j) cluster->slots[j] = cluster->i;
     cluster->i++;
@@ -89,8 +89,8 @@ Cluster *copyClusterState(const Cluster *src) {
     dest->nodes[i] = (Conn *) malloc(sizeof(Conn));
     ASSERT_MALLOC(dest->nodes[i], "for new cluster connection on copy");
 
-    strcpy(dest->nodes[i]->addr.host, src->nodes[i]->addr.host);
-    strcpy(dest->nodes[i]->addr.port, src->nodes[i]->addr.port);
+    snprintf(dest->nodes[i]->addr.host, MAX_HOST_SIZE, "%s", src->nodes[i]->addr.host);
+    snprintf(dest->nodes[i]->addr.port, MAX_PORT_SIZE, "%s", src->nodes[i]->addr.port);
 
     if (createConnection(dest->nodes[i]) == MY_ERR_CODE) return NULL;
   }
@@ -117,7 +117,7 @@ void printClusterSlots(const Cluster *c) {
 
   for (i = 0; i < CLUSTER_SLOT_SIZE; ++i) {
     conn = FIND_CONN(c, i);
-    fprintf(stdout, "%05d\t%s:%s\n", i, conn->addr.host, conn->addr.port);
+    printf("%05d\t%s:%s\n", i, conn->addr.host, conn->addr.port);
   }
 }
 
@@ -127,6 +127,14 @@ void printClusterNodes(const Cluster *c) {
   for (i = 0; i < c->i; ++i) {
     printf("%s:%s\n", c->nodes[i]->addr.host, c->nodes[i]->addr.port);
   }
+}
+
+static inline int isKeylessCommand(const char *cmd) {
+  while (*cmd != '\0') {
+    if (*cmd == ' ') return 0;
+    ++cmd;
+  }
+  return 1;
 }
 
 int key2slot(const Cluster *cluster, const char *cmd) {
@@ -146,12 +154,12 @@ int key2slot(const Cluster *cluster, const char *cmd) {
   }
 
   line = LAST_LINE2(reply);
-  if (line == NULL || strlen(line) == 0) {
+  if (line == NULL || strlen(line) == 0) {  // FIXME: blank is a bug
     freeReply(&reply);
-    return ANY_NODE_OK; // FIXME: blank is a bug
+    return ANY_NODE_OK;
   }
 
-  strcpy(kBuf, line);
+  snprintf(kBuf, MAX_KEY_SIZE, "%s", line);
   freeReply(&reply);
 
   snprintf(cBuf, MAX_CMD_SIZE, "CLUSTER KEYSLOT %s", kBuf);
@@ -172,4 +180,23 @@ int key2slot(const Cluster *cluster, const char *cmd) {
   freeReply(&reply);
 
   return slot;
+}
+
+int countKeysInSlot(Conn *conn, int slot) {
+  char buf[MAX_CMD_SIZE], *line;
+  int ret;
+  Reply reply;
+
+  snprintf(buf, MAX_CMD_SIZE, "CLUSTER COUNTKEYSINSLOT %d", slot);
+  ret = command(conn, buf, &reply);
+  if (ret == MY_ERR_CODE) {
+    freeReply(&reply);
+    return ret;
+  }
+
+  line = LAST_LINE2(reply);
+  ret = line == NULL ? 0 : atoi(line);
+  freeReply(&reply);
+
+  return ret;
 }
