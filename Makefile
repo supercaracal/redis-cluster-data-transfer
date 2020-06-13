@@ -1,6 +1,6 @@
 CC    := gcc
 SHELL := /bin/bash
-SRCS  := command command_raw net cluster copy
+SRCS  := command command_raw net cluster
 OBJS  := $(addsuffix .o,$(SRCS))
 
 CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
@@ -22,7 +22,7 @@ bin/exe: CPPFLAGS += -DMAX_CONCURRENCY=$(WORKER)
 bin/exe: CPPFLAGS += -DMAX_TIMEOUT_SEC=$(TIMEOUT)
 bin/exe: CPPFLAGS += -DPIPELINING_SIZE=$(PIPELINE)
 bin/exe: LDLIBS += -lpthread
-bin/exe: main.o $(OBJS)
+bin/exe: main.o copy.o $(OBJS)
 	$(call link)
 
 bin/cli: CFLAGS += -O2
@@ -45,7 +45,7 @@ bin/dexe: CPPFLAGS += -DMAX_CONCURRENCY=1
 bin/dexe: CPPFLAGS += -DMAX_TIMEOUT_SEC=300
 bin/dexe: CPPFLAGS += -DPIPELINING_SIZE=2
 bin/dexe: LDLIBS += -lpthread
-bin/dexe: main.o $(OBJS)
+bin/dexe: main.o copy.o $(OBJS)
 	$(call link)
 
 bin/dcli: CFLAGS += -g

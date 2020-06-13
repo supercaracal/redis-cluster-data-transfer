@@ -186,7 +186,13 @@ static int parseRawReply(const char *buf, int size, Reply *reply) {
         case '*':
           reply->types[reply->i] = TMPARR;
           break;
+        case '\r':
+        case '\n':
+          // skip
+          break;
         default:
+          PRINT_MIXED_BINARY(buf, size);
+          printf("\n");
           ASSERT_REPLY_PARSE(0, "not expected token");
           break;
       }

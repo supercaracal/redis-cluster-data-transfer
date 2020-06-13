@@ -117,6 +117,10 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
         if (ret == MY_ERR_CODE) break;
       }
       if (ret == MY_OK_CODE) {
+        if ((reply.i != pip.cnt * 2)) {
+          PRINT_MIXED_BINARY(pip.buf, pip.i); printf("\n");
+          printReplyLines(&reply);
+        }
         ASSERT_RESTORE_DATA((reply.i == pip.cnt * 2), "key and payload pairs are wrong");
         transferKeys(dest, &reply, result);
       } else {
