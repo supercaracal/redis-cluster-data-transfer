@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 #include "./generic.h"
 #include "./command.h"
 #include "./command_raw.h"
@@ -14,6 +15,15 @@
   }\
 } while (0)
 
+static inline char *errNo2Code(int n) {
+  switch (n) {
+    case 11:
+      return "EAGAIN";
+    default:
+      return "!!!!";
+  }
+}
+
 static int tryToWriteToSocket(Conn *conn, const void *buf, int size) {
   int sock, ret;
 
@@ -22,8 +32,9 @@ static int tryToWriteToSocket(Conn *conn, const void *buf, int size) {
 
   ret = send(sock, buf, size, 0);
   if (ret == -1) {
+    ret = errno;
     perror("send(2)");
-    fprintf(stderr, "send(2): %s:%s\n", conn->addr.host, conn->addr.port);
+    fprintf(stderr, "send(2): %s: %s:%s\n", errNo2Code(ret), conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
 
@@ -37,8 +48,9 @@ static int tryToReadFromSocket(Conn *conn, void *buf, int size) {
 
   ret = recv(sock, buf, size, 0);
   if (ret == -1) {
+    ret = errno;
     perror("recv(2)");
-    fprintf(stderr, "recv(2): %s:%s\n", conn->addr.host, conn->addr.port);
+    fprintf(stderr, "recv(2): %s: %s:%s\n", errNo2Code(ret), conn->addr.host, conn->addr.port);
     return MY_ERR_CODE;
   }
   if (ret == 0) {
