@@ -127,7 +127,7 @@ void printReplyLines(const Reply *reply) {
         printf("%s\n",  reply->lines[i]);
         break;
       case RAW:
-        PRINT_BINARY(reply->lines[i], reply->sizes[i]);
+        PRINT_MIXED_BINARY(reply->lines[i], reply->sizes[i]);
         printf("\n");
         break;
       case NIL:

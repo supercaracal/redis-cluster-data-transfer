@@ -15,6 +15,23 @@
   }\
 } while (0)
 
+#define ASSERT_CMD_SIZE(size) do {\
+  if ((size) < 1) {\
+    fprintf(stderr, "Empty command was given\n");\
+    exit(1);\
+  }\
+} while (0)
+
+#define ASSERT_REPLY_PTR(reply) do {\
+  if ((reply) == NULL) {\
+    fprintf(stderr, "NULL reply pointer was given\n");\
+    exit(1);\
+  } else if ((reply)->size < 1) {\
+    fprintf(stderr, "fishy reply pointer was given\n");\
+    exit(1);\
+  }\
+} while (0)
+
 static inline char *errNo2Code(int n) {
   switch (n) {
     case 11:
@@ -186,6 +203,8 @@ static int parseRawReply(const char *buf, int size, Reply *reply) {
 int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
   int ret;
 
+  ASSERT_CMD_SIZE(size);
+
   ret = tryToWriteToSocket(conn, cmd, size);
   if (ret == MY_ERR_CODE) return ret;
 
@@ -196,6 +215,8 @@ int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
 int readRemainedReplyLines(Conn *conn, Reply *reply) {
   int ret;
   char buf[MAX_RECV_SIZE];
+
+  ASSERT_REPLY_PTR(reply);
 
   ret = tryToReadFromSocket(conn, buf, MAX_RECV_SIZE);
   if (ret == MY_ERR_CODE) return ret;

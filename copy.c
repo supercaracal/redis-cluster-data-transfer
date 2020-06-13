@@ -61,7 +61,7 @@ static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize,
 static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *result) {
   Pipeline pip;
   Reply reply;
-  int i;
+  int i, ret;
 
   for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 2) {
     ASSERT_RESTORE_DATA((keyPayloads->types[i] == RAW), "must be a key");
@@ -74,11 +74,23 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
     }
 
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
+    if (pip.cnt == 0) continue;
 
-    commandWithRawData(c, pip.buf, &reply, pip.i);
-    while (reply.i < pip.cnt) readRemainedReplyLines(c, &reply);
-    ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
-    countRestoreResult(&reply, result);
+    ret = commandWithRawData(c, pip.buf, &reply, pip.i);
+    if (ret == MY_ERR_CODE) {
+      result->failed += pip.cnt;
+    } else {
+      while (reply.i < pip.cnt) {
+        ret = readRemainedReplyLines(c, &reply);
+        if (ret == MY_ERR_CODE) break;
+      }
+      if (ret == MY_OK_CODE) {
+        ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
+        countRestoreResult(&reply, result);
+      } else {
+        result->failed += pip.cnt;
+      }
+    }
 
     pip.cnt = pip.i = 0;
     freeReply(&reply);
@@ -93,15 +105,23 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
   for (i = pip.i = pip.cnt = 0; i < keys->i; ++i) {
     pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2, "ECHO %s\r\nDUMP %s\r\n", keys->lines[i], keys->lines[i]);
     pip.cnt++;
+
     if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
 
     ret = commandWithRawData(src, pip.buf, &reply, pip.i);
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
-      while (reply.i < pip.cnt * 2) readRemainedReplyLines(src, &reply);
-      ASSERT_RESTORE_DATA((reply.i == pip.cnt * 2), "key and payload pairs are wrong");
-      transferKeys(dest, &reply, result);
+      while (reply.i < pip.cnt * 2) {
+        ret = readRemainedReplyLines(src, &reply);
+        if (ret == MY_ERR_CODE) break;
+      }
+      if (ret == MY_OK_CODE) {
+        ASSERT_RESTORE_DATA((reply.i == pip.cnt * 2), "key and payload pairs are wrong");
+        transferKeys(dest, &reply, result);
+      } else {
+        result->failed += pip.cnt;
+      }
     }
 
     pip.cnt = pip.i = 0;
