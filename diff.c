@@ -67,7 +67,7 @@ static void compareValues(const Reply *a, const Reply *b, DiffResult *result) {
       printf("[Destination]-----------------------------------------------------\n");
       PRINT_BINARY(b->lines[i+1], b->sizes[i+1]);
       printf("\n");
-      exit(1);
+      printf("\n");
     }
   }
 }
