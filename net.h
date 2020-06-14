@@ -1,6 +1,8 @@
 #ifndef NET_H_
 #define NET_H_
 
+#include <stdio.h>
+
 #define MAX_HOST_SIZE 256
 #define MAX_PORT_SIZE 8
 
