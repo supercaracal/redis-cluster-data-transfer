@@ -25,20 +25,20 @@
   }\
 } while (0)
 
-#define PRINT_BINARY(line, size) do {\
-  int i;\
-  for (i = 0; i < (size); ++i) {\
-    printf("%02x ", ((unsigned char *) line)[i]);\
+#define PRINT_BINARY(buf, size) do {\
+  int __i;\
+  for (__i = 0; __i < (size); ++__i) {\
+    printf("%02x ", ((unsigned char *) (buf))[__i]);\
   }\
 } while (0)
 
 #define PRINT_MIXED_BINARY(buf, size) do {\
-  int i;\
-  for (i = 0; i < (size); ++i) {\
-    if ((' ' <= buf[i] && buf[i] <= '~') || buf[i] == '\r' || buf[i] == '\n') {\
-      printf("%c", buf[i]);\
+  int __i;\
+  for (__i = 0; __i < (size); ++__i) {\
+    if ((' ' <= (buf)[__i] && (buf)[__i] <= '~') || (buf)[__i] == '\r' || (buf)[__i] == '\n') {\
+      printf("%c", (buf)[__i]);\
     } else {\
-      printf("%02x", ((unsigned char *) buf)[i]);\
+      printf("%02x", ((unsigned char *) (buf))[__i]);\
     }\
   }\
 } while (0)

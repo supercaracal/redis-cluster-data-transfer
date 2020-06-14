@@ -135,7 +135,7 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
 
 int copyKeys(Conn *src, Conn *dest, int slot, MigrationResult *result, int dryRun) {
   char buf[MAX_CMD_SIZE];
-  int ret;
+  int ret, cnt;
   Reply reply;
 
   ret = countKeysInSlot(src, slot);
@@ -144,9 +144,11 @@ int copyKeys(Conn *src, Conn *dest, int slot, MigrationResult *result, int dryRu
   result->found += ret;
   if (dryRun) return MY_OK_CODE;
 
+  cnt = ret;
   snprintf(buf, MAX_CMD_SIZE, "CLUSTER GETKEYSINSLOT %d %d", slot, ret);
   ret = command(src, buf, &reply);
   if (ret == MY_ERR_CODE) {
+    result->failed += cnt;
     freeReply(&reply);
     return ret;
   }

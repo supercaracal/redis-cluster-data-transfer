@@ -32,17 +32,17 @@
 
 #define EXPAND_REPLY_IF_NEEDED(r) do {\
   if (r->i == r->size) {\
-    void *tmp;\
+    void *__tmp;\
     r->size *= 2;\
-    tmp = realloc(r->lines, sizeof(char *) * r->size);\
-    ASSERT_REALLOC(tmp, "for reply lines");\
-    r->lines = (char **) tmp;\
-    tmp = realloc(r->types, sizeof(ReplyType) * r->size);\
-    ASSERT_REALLOC(tmp, "for reply types");\
-    r->types = (ReplyType *) tmp;\
-    tmp = realloc(r->sizes, sizeof(int) * r->size);\
-    ASSERT_REALLOC(tmp, "for reply sizes");\
-    r->sizes = (int *) tmp;\
+    __tmp = realloc(r->lines, sizeof(char *) * r->size);\
+    ASSERT_REALLOC(__tmp, "for reply lines");\
+    r->lines = (char **) __tmp;\
+    __tmp = realloc(r->types, sizeof(ReplyType) * r->size);\
+    ASSERT_REALLOC(__tmp, "for reply types");\
+    r->types = (ReplyType *) __tmp;\
+    __tmp = realloc(r->sizes, sizeof(int) * r->size);\
+    ASSERT_REALLOC(__tmp, "for reply sizes");\
+    r->sizes = (int *) __tmp;\
   }\
 } while (0)
 
