@@ -16,6 +16,8 @@
 #define PIPELINING_SIZE 10
 #endif  // PIPELINING_SIZE
 
+#define RDB_VER_BYTES 10
+
 typedef struct { int found, same, different, deficient, failed, skipped; } DiffResult;
 typedef struct { Cluster *src, *dest; int i, firstSlot, lastSlot; DiffResult *result; } WorkerArgs;
 typedef struct { char buf[MAX_CMD_SIZE * PIPELINING_SIZE]; int i, cnt; } Pipeline;
@@ -24,7 +26,7 @@ static inline int compareBytes(const char *a, int sizeA, const char *b, int size
   int i;
 
   if (sizeA != sizeB) return 1;
-  for (i = 0; i < sizeA; ++i) {
+  for (i = 0; i < sizeA - RDB_VER_BYTES; ++i) {
     if (a[i] != b[i]) return 1;
   }
   return 0;

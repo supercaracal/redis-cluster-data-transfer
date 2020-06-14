@@ -36,6 +36,7 @@ so on and so forth
 
 ## TODO
 * Use non-blocking IO
+* Support [PTTL](https://redis.io/commands/pttl)
 
 ## Trial
 
