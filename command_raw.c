@@ -34,10 +34,14 @@
 
 static inline char *errNo2Code(int n) {
   switch (n) {
+    case 4:
+      return "EINTR";
     case 11:
       return "EAGAIN";
+    case 32:
+      return "EPIPE";
     default:
-      return "!!!!";
+      return "!!!!!";
   }
 }
 
