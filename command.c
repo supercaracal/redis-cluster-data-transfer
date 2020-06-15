@@ -138,3 +138,16 @@ void printReplyLines(const Reply *reply) {
     }
   }
 }
+
+char *getReplyTypeCode(ReplyType r) {
+  switch (r) {
+    case STRING: return "STRING";
+    case INTEGER: return "INTEGER";
+    case RAW: return "RAW";
+    case ERR: return "ERR";
+    case NIL: return "NIL";
+    case TMPBULKSTR: return "TMPBULKSTR";
+    case TMPARR: return "TMPARR";
+    default: return "UNKNOWN";
+  }
+}

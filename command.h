@@ -66,5 +66,6 @@ int command(Conn *, const char *, Reply *);
 int pipeline(Conn *, const char *, Reply *, int);
 void freeReply(Reply *);
 void printReplyLines(const Reply *);
+char *getReplyTypeCode(ReplyType);
 
 #endif  // COMMAND_H_
