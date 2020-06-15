@@ -97,20 +97,12 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 3 < keyPayloads->i) continue;
     if (pip.cnt == 0) continue;
 
-    ret = commandWithRawData(c, pip.buf, &reply, pip.i);
+    ret = commandWithRawData(c, pip.buf, pip.i, &reply, pip.cnt);
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
-      while (reply.i < pip.cnt) {
-        ret = readRemainedReplyLines(c, &reply);
-        if (ret == MY_ERR_CODE) break;
-      }
-      if (ret == MY_OK_CODE) {
-        ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
-        countRestoreResult(&reply, result);
-      } else {
-        result->failed += pip.cnt;
-      }
+      ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
+      countRestoreResult(&reply, result);
     }
 
     pip.cnt = pip.i = 0;
@@ -131,24 +123,12 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
     if (pip.cnt % PIPELINING_SIZE > 0 && i + 1 < keys->i) continue;
     if (pip.cnt == 0) continue;
 
-    ret = commandWithRawData(src, pip.buf, &reply, pip.i);
+    ret = commandWithRawData(src, pip.buf, pip.i, &reply, pip.cnt * 3);
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
-      while (reply.i < pip.cnt * 3) {
-        ret = readRemainedReplyLines(src, &reply);
-        if (ret == MY_ERR_CODE) break;
-      }
-      if (ret == MY_OK_CODE) {
-        if ((reply.i != pip.cnt * 3)) {
-          PRINT_MIXED_BINARY(pip.buf, pip.i); printf("\n");
-          printReplyLines(&reply);
-        }
-        ASSERT_RESTORE_DATA((reply.i == pip.cnt * 3), "key and payload pairs are wrong");
-        transferKeys(dest, &reply, result);
-      } else {
-        result->failed += pip.cnt;
-      }
+      ASSERT_RESTORE_DATA((reply.i == pip.cnt * 3), "key and payload pairs are wrong");
+      transferKeys(dest, &reply, result);
     }
 
     pip.cnt = pip.i = 0;
