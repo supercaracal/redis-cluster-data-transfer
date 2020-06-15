@@ -116,9 +116,10 @@ static void TestCommandRawParseRawReply003(void) {
 
   struct {
     char *buf; int size; int expRC; int expN; char *expL; int expLS; ReplyType expLT;
-  } c[2] = {
+  } c[3] = {
     {"$9\r\nfoobarbaz\r\n", 15, MY_OK_CODE, 1, "foobarbaz", 9, RAW},
     {"$9\r\nfoobarbaz\r\n$9\r\nfoobarbaz\r\n", 30, MY_OK_CODE, 2, "foobarbaz", 9, RAW},
+    {"$-1\r\n", 5, MY_OK_CODE, 1, NULL, 0, NIL},
   };
 
   Reply r, *reply;
@@ -132,8 +133,10 @@ static void TestCommandRawParseRawReply003(void) {
     TEST_INT(i, reply->i == c[i].expN, "number of reply lines", c[i].expN, reply->i);
     for (j = 0; j < c[i].expN; ++j) {
       TEST_INT(i, reply->sizes[j] == c[i].expLS, "reply line size", c[i].expLS, reply->sizes[j]);
-      TEST_RAW(i, strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0, "reply line string",
-          c[i].expL, c[i].expLS, reply->lines[j], reply->sizes[j]);
+      if (c[i].expLT == RAW) {
+        TEST_RAW(i, strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0, "reply line string",
+            c[i].expL, c[i].expLS, reply->lines[j], reply->sizes[j]);
+      }
       TEST_STR(i, reply->types[j] == c[i].expLT, "reply line type", getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[j]));
     }
 
@@ -191,9 +194,49 @@ static void TestCommandRawParseRawReply004(void) {
   }
 }
 
+// Complex reply
+static void TestCommandRawParseRawReply005(void) {
+  int ret;
+  char *buf;
+
+  buf =
+    "+OK\r\n"
+    "$9\r\n"
+    "foobarbaz\r\n"
+    ":12345\r\n"
+    "$-1\r\n";
+
+  Reply r, *reply;
+  reply = &r;
+
+  INIT_REPLY(reply);
+
+  ret = PublicForTestParseRawReply(buf, strlen(buf), reply);
+  TEST_INT(0, ret == MY_OK_CODE, "return code", MY_OK_CODE, ret);
+  TEST_INT(0, reply->i == 4, "number of reply lines", 4, reply->i);
+
+  TEST_INT(0, reply->sizes[0] == 2, "reply line size", 2, reply->sizes[0]);
+  TEST_STR(0, strncmp(reply->lines[0], "OK", 2) == 0, "reply line string", "OK", reply->lines[0]);
+  TEST_STR(0, reply->types[0] == STRING, "reply line type", getReplyTypeCode(STRING), getReplyTypeCode(reply->types[0]));
+
+  TEST_INT(0, reply->sizes[1] == 9, "reply line size", 9, reply->sizes[0]);
+  TEST_RAW(0, strncmp(reply->lines[1], "foobarbaz", 9) == 0, "reply line string", "foobarbaz", 9, reply->lines[1], reply->sizes[1]);
+  TEST_STR(0, reply->types[1] == RAW, "reply line type", getReplyTypeCode(RAW), getReplyTypeCode(reply->types[1]));
+
+  TEST_INT(0, reply->sizes[2] == 5, "reply line size", 5, reply->sizes[2]);
+  TEST_STR(0, strncmp(reply->lines[2], "12345", 5) == 0, "reply line string", "12345", reply->lines[2]);
+  TEST_STR(0, reply->types[2] == INTEGER, "reply line type", getReplyTypeCode(INTEGER), getReplyTypeCode(reply->types[2]));
+
+  TEST_INT(0, reply->sizes[3] == 0, "reply line size", 0, reply->sizes[3]);
+  TEST_STR(0, reply->types[3] == NIL, "reply line type", getReplyTypeCode(NIL), getReplyTypeCode(reply->types[3]));
+
+  freeReply(reply);
+}
+
 void TestCommandRaw(void) {
   TestCommandRawParseRawReply001();
   TestCommandRawParseRawReply002();
   TestCommandRawParseRawReply003();
   TestCommandRawParseRawReply004();
+  TestCommandRawParseRawReply005();
 }
