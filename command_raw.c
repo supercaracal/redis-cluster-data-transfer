@@ -33,14 +33,10 @@
 
 static inline char *errNo2Code(int n) {
   switch (n) {
-    case 4:
-      return "EINTR";
-    case 11:
-      return "EAGAIN";
-    case 32:
-      return "EPIPE";
-    default:
-      return "!!!!!";
+    case  4: return "EINTR";
+    case 11: return "EAGAIN";
+    case 32: return "EPIPE";
+    default: return "!!!!!";
   }
 }
 
@@ -92,6 +88,7 @@ static inline void finalizeSimpleString(Reply *reply) {
       ADVANCE_REPLY_LINE(reply);
       break;
     case TMPBULKSTR:
+      reply->lines[reply->i][reply->nextIdxOfLastLine] = '\0';
       n = atoi(reply->lines[reply->i]);
       if (n >= 0) {
         free(reply->lines[reply->i]);
@@ -157,6 +154,7 @@ static inline void parseBulkStringAsBinary(Reply *reply, char c) {
       ADVANCE_REPLY_LINE(reply);
       return;
     }
+    ASSERT_REPLY_PARSE(0, "could not parse as a bulk string");
   }
 
   if (reply->lines[reply->i] == NULL) {
