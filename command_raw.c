@@ -236,3 +236,9 @@ int readRemainedReplyLines(Conn *conn, Reply *reply) {
 
   return MY_OK_CODE;
 }
+
+#ifdef TEST
+int PublicForTestParseRawReply(const char *buf, int size, Reply *reply) {
+  return parseRawReply(buf, size, reply);
+}
+#endif

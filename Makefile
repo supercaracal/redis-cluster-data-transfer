@@ -74,6 +74,7 @@ bin/dcli: client.o $(OBJS)
 	$(call link)
 
 test: bin/test
+	@bin/test
 
 bin/test: CFLAGS += -g
 bin/test: CPPFLAGS += -DTEST

@@ -43,4 +43,9 @@
   }\
 } while (0)
 
+#ifdef TEST
+#define TEST_NG "\033[1m\033[31m[NG]\033[m"
+#define TEST_OK "\033[1m\033[32m[OK]\033[m"
+#endif
+
 #endif  // GENERIC_H_
