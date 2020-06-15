@@ -29,6 +29,9 @@ jobs:
       - name: Debug
         run: make debug
 
+      - name: Clean
+        run: make clean
+
       - name: Test
         run: make test
 
