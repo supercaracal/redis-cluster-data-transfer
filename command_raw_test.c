@@ -21,7 +21,7 @@ static void TestCommandRawParseRawReply001(void) {
   Reply r, *reply;
   reply = &r;
 
-  for (i = 0; i < 6; ++i) {
+  for (i = 0; i < CASE_CNT(c); ++i) {
     INIT_REPLY(reply);
 
     ret = PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
@@ -91,7 +91,7 @@ static void TestCommandRawParseRawReply002(void) {
   Reply r, *reply;
   reply = &r;
 
-  for (i = 0; i < 42; ++i) {
+  for (i = 0; i < CASE_CNT(c); ++i) {
     INIT_REPLY(reply);
 
     ret = PublicForTestParseRawReply(c[i].buf1, c[i].size1, reply);
@@ -124,7 +124,7 @@ static void TestCommandRawParseRawReply003(void) {
   Reply r, *reply;
   reply = &r;
 
-  for (i = 0; i < 2; ++i) {
+  for (i = 0; i < CASE_CNT(c); ++i) {
     INIT_REPLY(reply);
 
     ret = PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
@@ -147,15 +147,31 @@ static void TestCommandRawParseRawReply004(void) {
 
   struct {
     char *buf1; int size1; int expRC1; char *buf2; int size2; int expRC2; int expN; char *expL; int expLS; ReplyType expLT;
-  } c[2] = {
+  } c[18] = {
     {"$3\r\nfo", 6, NEED_MORE_REPLY, "o\r\n", 3, MY_OK_CODE, 1, "foo", 3, RAW},
-    {"$", 1, NEED_MORE_REPLY, "3\r\nfoo\r\n", 8, MY_OK_CODE, 1, "foo", 3, RAW},
+    {"$", 1, NEED_MORE_REPLY, "3\r\nfoo\r\n$3\r\nfoo\r\n", 17, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3", 2, NEED_MORE_REPLY, "\r\nfoo\r\n$3\r\nfoo\r\n", 16, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r", 3, NEED_MORE_REPLY, "\nfoo\r\n$3\r\nfoo\r\n", 15, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\n", 4, NEED_MORE_REPLY, "foo\r\n$3\r\nfoo\r\n", 14, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nf", 5, NEED_MORE_REPLY, "oo\r\n$3\r\nfoo\r\n", 13, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfo", 6, NEED_MORE_REPLY, "o\r\n$3\r\nfoo\r\n", 12, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo", 7, NEED_MORE_REPLY, "\r\n$3\r\nfoo\r\n", 11, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r", 8, NEED_MORE_REPLY, "\n$3\r\nfoo\r\n", 10, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n", 9, MY_OK_CODE, "$3\r\nfoo\r\n", 9, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$", 10, NEED_MORE_REPLY, "3\r\nfoo\r\n", 8, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$3", 11, NEED_MORE_REPLY, "\r\nfoo\r\n", 7, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$3\r", 12, NEED_MORE_REPLY, "\nfoo\r\n", 6, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$3\r\n", 13, NEED_MORE_REPLY, "foo\r\n", 5, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$3\r\nf", 14, NEED_MORE_REPLY, "oo\r\n", 4, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$3\r\nfo", 15, NEED_MORE_REPLY, "o\r\n", 3, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$3\r\nfoo", 16, NEED_MORE_REPLY, "\r\n", 2, MY_OK_CODE, 2, "foo", 3, RAW},
+    {"$3\r\nfoo\r\n$3\r\nfoo\r", 17, NEED_MORE_REPLY, "\n", 1, MY_OK_CODE, 2, "foo", 3, RAW},
   };
 
   Reply r, *reply;
   reply = &r;
 
-  for (i = 0; i < 2; ++i) {
+  for (i = 0; i < CASE_CNT(c); ++i) {
     INIT_REPLY(reply);
 
     ret = PublicForTestParseRawReply(c[i].buf1, c[i].size1, reply);

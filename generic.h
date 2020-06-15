@@ -33,12 +33,12 @@
 } while (0)
 
 #define PRINT_MIXED_BINARY(buf, size) do {\
-  int iii;\
-  for (iii = 0; iii < (size); ++iii) {\
-    if ((' ' <= (buf)[iii] && (buf)[iii] <= '~') || (buf)[iii] == '\r' || (buf)[iii] == '\n') {\
-      printf("%c", (buf)[iii]);\
+  int iiii;\
+  for (iiii = 0; iiii < (size); ++iiii) {\
+    if ((' ' <= (buf)[iiii] && (buf)[iiii] <= '~') || (buf)[iiii] == '\r' || (buf)[iiii] == '\n') {\
+      printf("%c", (buf)[iiii]);\
     } else {\
-      printf("%02x", ((unsigned char *) (buf))[iii]);\
+      printf("%02x", ((unsigned char *) (buf))[iiii]);\
     }\
   }\
 } while (0)
@@ -46,6 +46,7 @@
 #ifdef TEST
 #define TEST_NG "\033[1m\033[31m[NG]\033[m"
 #define TEST_OK "\033[1m\033[32m[OK]\033[m"
+#define CASE_CNT(c) (((int) (sizeof(c) / sizeof(c[0]))))
 
 #define TEST_INT(no, result, desc, expected, actual) do {\
   printf("%s", (result) ? TEST_OK : TEST_NG);\
