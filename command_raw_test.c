@@ -4,14 +4,14 @@
 #include "./command_raw.h"
 
 static void TestCommandRawParseRawReply001(void) {
-  int i;
+  int i, ret;
 
   struct {
-    char *buf; int size; int expN; char *expL; int expLS; ReplyType expLT;
+    char *buf; int size; int expRC; int expN; char *expL; int expLS; ReplyType expLT;
   } c[3] = {
-    {"+OK\r\n", 5, 1, "OK", 2, STRING},
-    {"-ERR you wrong\r\n", 16, 1, "ERR you wrong", 13, ERR},
-    {":12345\r\n", 8, 1, "12345", 5, INTEGER},
+    {"+OK\r\n", 5, MY_OK_CODE, 1, "OK", 2, STRING},
+    {"-ERR you wrong\r\n", 16, MY_OK_CODE, 1, "ERR you wrong", 13, ERR},
+    {":12345\r\n", 8, MY_OK_CODE, 1, "12345", 5, INTEGER},
   };
 
   Reply r, *reply;
@@ -20,7 +20,10 @@ static void TestCommandRawParseRawReply001(void) {
   for (i = 0; i < 3; ++i) {
     INIT_REPLY(reply);
 
-    PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
+    ret = PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
+
+    printf("%s", ret == c[i].expRC ? TEST_OK : TEST_NG);
+    printf(" TestCommandRawParseRawReply001: return code: expected: %d, actual: %d\n", c[i].expRC, ret);
 
     printf("%s", reply->i == c[i].expN ? TEST_OK : TEST_NG);
     printf(" TestCommandRawParseRawReply001: number of reply lines: expected: %d, actual: %d\n", c[i].expN, reply->i);
@@ -39,6 +42,10 @@ static void TestCommandRawParseRawReply001(void) {
   }
 }
 
+static void TestCommandRawParseRawReply002(void) {
+}
+
 void TestCommandRaw(void) {
   TestCommandRawParseRawReply001();
+  TestCommandRawParseRawReply002();
 }
