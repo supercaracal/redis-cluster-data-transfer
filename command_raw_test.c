@@ -22,10 +22,10 @@ static void TestCommandRawParseRawReply001(void) {
 
     PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
 
-    reply->i == c[i].expN ? printf(TEST_OK) : printf(TEST_NG);
+    printf("%s", reply->i == c[i].expN ? TEST_OK : TEST_NG);
     printf(" TestCommandRawParseRawReply001: number of reply lines: expected: %d, actual: %d\n", c[i].expN, reply->i);
 
-    strncmp(reply->lines[0], c[i].expL, c[i].expLS) == 0 ? printf(TEST_OK) : printf(TEST_NG);
+    printf("%s", strncmp(reply->lines[0], c[i].expL, c[i].expLS) == 0 ? TEST_OK : TEST_NG);
     printf(" TestCommandRawParseRawReply001: reply line string: expected: %s, actual: %s\n", c[i].expL, reply->lines[0]);
 
     freeReply(reply);
