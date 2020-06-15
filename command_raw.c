@@ -6,7 +6,6 @@
 #include "./command_raw.h"
 
 #define MAX_RECV_SIZE (1 << 12)
-#define NEED_MORE_REPLY -2
 
 #define ASSERT_REPLY_PARSE(cond, msg) do {\
   if (!(cond)) {\

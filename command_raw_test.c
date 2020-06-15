@@ -3,6 +3,7 @@
 #include "./command.h"
 #include "./command_raw.h"
 
+// Simple String: a line
 static void TestCommandRawParseRawReply001(void) {
   int i, ret;
 
@@ -42,7 +43,37 @@ static void TestCommandRawParseRawReply001(void) {
   }
 }
 
+// Simple String: fragment parse
 static void TestCommandRawParseRawReply002(void) {
+  int i, ret;
+
+  struct {
+    char *buf1; int size1; int expRC1; char *buf2; int size2; int expRC2; char *expL; int expLS;
+  } c[3] = {
+    {"+O", 2, NEED_MORE_REPLY, "K\r\n", 3, MY_OK_CODE, "OK", 2},
+    {"-ERR ", 5, NEED_MORE_REPLY, "you wrong\r\n", 11, MY_OK_CODE, "ERR you wrong", 13},
+    {":123", 4, NEED_MORE_REPLY, "45\r\n", 4, MY_OK_CODE, "12345", 5},
+  };
+
+  Reply r, *reply;
+  reply = &r;
+
+  for (i = 0; i < 3; ++i) {
+    INIT_REPLY(reply);
+
+    ret = PublicForTestParseRawReply(c[i].buf1, c[i].size1, reply);
+    printf("%s", ret == c[i].expRC1 ? TEST_OK : TEST_NG);
+    printf(" TestCommandRawParseRawReply002: return code: expected: %d, actual: %d\n", c[i].expRC1, ret);
+
+    ret = PublicForTestParseRawReply(c[i].buf2, c[i].size2, reply);
+    printf("%s", ret == c[i].expRC2 ? TEST_OK : TEST_NG);
+    printf(" TestCommandRawParseRawReply002: return code: expected: %d, actual: %d\n", c[i].expRC2, ret);
+
+    printf("%s", strncmp(reply->lines[0], c[i].expL, c[i].expLS) == 0 ? TEST_OK : TEST_NG);
+    printf(" TestCommandRawParseRawReply002: reply line string: expected: %s, actual: %s\n", c[i].expL, reply->lines[0]);
+
+    freeReply(reply);
+  }
 }
 
 void TestCommandRaw(void) {

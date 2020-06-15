@@ -4,6 +4,8 @@
 #include "./net.h"
 #include "./command.h"
 
+#define NEED_MORE_REPLY -2
+
 int commandWithRawData(Conn *, const void *, Reply *, int);
 int readRemainedReplyLines(Conn *, Reply *);
 
