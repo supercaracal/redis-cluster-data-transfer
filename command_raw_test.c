@@ -3,22 +3,25 @@
 #include "./command.h"
 #include "./command_raw.h"
 
-// Simple String: a line
+// Simple String: basic parse
 static void TestCommandRawParseRawReply001(void) {
-  int i, ret;
+  int i, j, ret;
 
   struct {
     char *buf; int size; int expRC; int expN; char *expL; int expLS; ReplyType expLT;
-  } c[3] = {
+  } c[6] = {
     {"+OK\r\n", 5, MY_OK_CODE, 1, "OK", 2, STRING},
     {"-ERR you wrong\r\n", 16, MY_OK_CODE, 1, "ERR you wrong", 13, ERR},
     {":12345\r\n", 8, MY_OK_CODE, 1, "12345", 5, INTEGER},
+    {"+OK\r\n+OK\r\n", 10, MY_OK_CODE, 2, "OK", 2, STRING},
+    {"-ERR you wrong\r\n-ERR you wrong\r\n", 32, MY_OK_CODE, 2, "ERR you wrong", 13, ERR},
+    {":12345\r\n:12345\r\n", 16, MY_OK_CODE, 2, "12345", 5, INTEGER},
   };
 
   Reply r, *reply;
   reply = &r;
 
-  for (i = 0; i < 3; ++i) {
+  for (i = 0; i < 6; ++i) {
     INIT_REPLY(reply);
 
     ret = PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
@@ -29,15 +32,17 @@ static void TestCommandRawParseRawReply001(void) {
     printf("%s", reply->i == c[i].expN ? TEST_OK : TEST_NG);
     printf(" TestCommandRawParseRawReply001: number of reply lines: expected: %d, actual: %d\n", c[i].expN, reply->i);
 
-    printf("%s", reply->sizes[0] == c[i].expLS ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply001: reply line size: expected: %d, actual: %d\n", c[i].expLS, reply->sizes[0]);
+    for (j = 0; j < c[i].expN; ++j) {
+      printf("%s", reply->sizes[j] == c[i].expLS ? TEST_OK : TEST_NG);
+      printf(" TestCommandRawParseRawReply001: reply line size: expected: %d, actual: %d\n", c[i].expLS, reply->sizes[j]);
 
-    printf("%s", strncmp(reply->lines[0], c[i].expL, c[i].expLS) == 0 ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply001: reply line string: expected: %s, actual: %s\n", c[i].expL, reply->lines[0]);
+      printf("%s", strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0 ? TEST_OK : TEST_NG);
+      printf(" TestCommandRawParseRawReply001: reply line string: expected: %s, actual: %s\n", c[i].expL, reply->lines[j]);
 
-    printf("%s", reply->types[0] == c[i].expLT ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply001: reply line type: expected: %s, actual: %s\n",
-        getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[0]));
+      printf("%s", reply->types[j] == c[i].expLT ? TEST_OK : TEST_NG);
+      printf(" TestCommandRawParseRawReply001: reply line type: expected: %s, actual: %s\n",
+          getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[j]));
+    }
 
     freeReply(reply);
   }
