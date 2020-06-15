@@ -25,23 +25,12 @@ static void TestCommandRawParseRawReply001(void) {
     INIT_REPLY(reply);
 
     ret = PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
-
-    printf("%s", ret == c[i].expRC ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply001: return code: expected: %d, actual: %d\n", c[i].expRC, ret);
-
-    printf("%s", reply->i == c[i].expN ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply001: number of reply lines: expected: %d, actual: %d\n", c[i].expN, reply->i);
-
+    TEST_INT(ret == c[i].expRC, "return code", c[i].expRC, ret);
+    TEST_INT(reply->i == c[i].expN, "number of reply lines", c[i].expN, reply->i);
     for (j = 0; j < c[i].expN; ++j) {
-      printf("%s", reply->sizes[j] == c[i].expLS ? TEST_OK : TEST_NG);
-      printf(" TestCommandRawParseRawReply001: reply line size: expected: %d, actual: %d\n", c[i].expLS, reply->sizes[j]);
-
-      printf("%s", strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0 ? TEST_OK : TEST_NG);
-      printf(" TestCommandRawParseRawReply001: reply line string: expected: %s, actual: %s\n", c[i].expL, reply->lines[j]);
-
-      printf("%s", reply->types[j] == c[i].expLT ? TEST_OK : TEST_NG);
-      printf(" TestCommandRawParseRawReply001: reply line type: expected: %s, actual: %s\n",
-          getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[j]));
+      TEST_INT(reply->sizes[j] == c[i].expLS, "reply line size", c[i].expLS, reply->sizes[j]);
+      TEST_STR(strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0, "reply line string", c[i].expL, reply->lines[j]);
+      TEST_STR(reply->types[j] == c[i].expLT, "reply line type", getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[j]));
     }
 
     freeReply(reply);
@@ -50,7 +39,7 @@ static void TestCommandRawParseRawReply001(void) {
 
 // Simple String: fragment parse
 static void TestCommandRawParseRawReply002(void) {
-  int i, ret;
+  int i, j, ret;
 
   struct {
     char *buf1; int size1; int expRC1; char *buf2; int size2; int expRC2; int expN; char *expL; int expLS; ReplyType expLT;
@@ -67,25 +56,81 @@ static void TestCommandRawParseRawReply002(void) {
     INIT_REPLY(reply);
 
     ret = PublicForTestParseRawReply(c[i].buf1, c[i].size1, reply);
-    printf("%s", ret == c[i].expRC1 ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply002: return code: expected: %d, actual: %d\n", c[i].expRC1, ret);
+    TEST_INT(ret == c[i].expRC1, "return code", c[i].expRC1, ret);
 
     ret = PublicForTestParseRawReply(c[i].buf2, c[i].size2, reply);
-    printf("%s", ret == c[i].expRC2 ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply002: return code: expected: %d, actual: %d\n", c[i].expRC2, ret);
+    TEST_INT(ret == c[i].expRC2, "return code", c[i].expRC2, ret);
+    TEST_INT(reply->i == c[i].expN, "number of reply lines", c[i].expN, reply->i);
+    for (j = 0; j < c[i].expN; ++j) {
+      TEST_INT(reply->sizes[j] == c[i].expLS, "reply line size", c[i].expLS, reply->sizes[j]);
+      TEST_STR(strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0, "reply line string", c[i].expL, reply->lines[j]);
+      TEST_STR(reply->types[j] == c[i].expLT, "reply line type", getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[j]));
+    }
 
-    printf("%s", reply->i == c[i].expN ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply002: number of reply lines: expected: %d, actual: %d\n", c[i].expN, reply->i);
+    freeReply(reply);
+  }
+}
 
-    printf("%s", reply->sizes[0] == c[i].expLS ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply002: reply line size: expected: %d, actual: %d\n", c[i].expLS, reply->sizes[0]);
+// Bulk String: basic parse
+static void TestCommandRawParseRawReply003(void) {
+  int i, j, ret;
 
-    printf("%s", strncmp(reply->lines[0], c[i].expL, c[i].expLS) == 0 ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply002: reply line string: expected: %s, actual: %s\n", c[i].expL, reply->lines[0]);
+  struct {
+    char *buf; int size; int expRC; int expN; char *expL; int expLS; ReplyType expLT;
+  } c[2] = {
+    {"$9\r\nfoobarbaz\r\n", 15, MY_OK_CODE, 1, "foobarbaz", 9, RAW},
+    {"$9\r\nfoobarbaz\r\n$9\r\nfoobarbaz\r\n", 30, MY_OK_CODE, 2, "foobarbaz", 9, RAW},
+  };
 
-    printf("%s", reply->types[0] == c[i].expLT ? TEST_OK : TEST_NG);
-    printf(" TestCommandRawParseRawReply002: reply line type: expected: %s, actual: %s\n",
-        getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[0]));
+  Reply r, *reply;
+  reply = &r;
+
+  for (i = 0; i < 2; ++i) {
+    INIT_REPLY(reply);
+
+    ret = PublicForTestParseRawReply(c[i].buf, c[i].size, reply);
+    TEST_INT(ret == c[i].expRC, "return code", c[i].expRC, ret);
+    TEST_INT(reply->i == c[i].expN, "number of reply lines", c[i].expN, reply->i);
+    for (j = 0; j < c[i].expN; ++j) {
+      TEST_INT(reply->sizes[j] == c[i].expLS, "reply line size", c[i].expLS, reply->sizes[j]);
+      TEST_RAW(strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0, "reply line string",
+          c[i].expL, c[i].expLS, reply->lines[j], reply->sizes[j]);
+      TEST_STR(reply->types[j] == c[i].expLT, "reply line type", getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[j]));
+    }
+
+    freeReply(reply);
+  }
+}
+
+// Bulk String: fragment parse
+static void TestCommandRawParseRawReply004(void) {
+  int i, j, ret;
+
+  struct {
+    char *buf1; int size1; int expRC1; char *buf2; int size2; int expRC2; int expN; char *expL; int expLS; ReplyType expLT;
+  } c[2] = {
+    {"$3\r\nfo", 6, NEED_MORE_REPLY, "o\r\n", 3, MY_OK_CODE, 1, "foo", 3, RAW},
+    {"$", 1, NEED_MORE_REPLY, "3\r\nfoo\r\n", 8, MY_OK_CODE, 1, "foo", 3, RAW},
+  };
+
+  Reply r, *reply;
+  reply = &r;
+
+  for (i = 0; i < 2; ++i) {
+    INIT_REPLY(reply);
+
+    ret = PublicForTestParseRawReply(c[i].buf1, c[i].size1, reply);
+    TEST_INT(ret == c[i].expRC1, "return code", c[i].expRC1, ret);
+
+    ret = PublicForTestParseRawReply(c[i].buf2, c[i].size2, reply);
+    TEST_INT(ret == c[i].expRC2, "return code", c[i].expRC2, ret);
+    TEST_INT(reply->i == c[i].expN, "number of reply lines", c[i].expN, reply->i);
+    for (j = 0; j < c[i].expN; ++j) {
+      TEST_INT(reply->sizes[j] == c[i].expLS, "reply line size", c[i].expLS, reply->sizes[j]);
+      TEST_RAW(strncmp(reply->lines[j], c[i].expL, c[i].expLS) == 0, "reply line string",
+          c[i].expL, c[i].expLS, reply->lines[j], reply->sizes[j]);
+      TEST_STR(reply->types[j] == c[i].expLT, "reply line type", getReplyTypeCode(c[i].expLT), getReplyTypeCode(reply->types[j]));
+    }
 
     freeReply(reply);
   }
@@ -94,4 +139,6 @@ static void TestCommandRawParseRawReply002(void) {
 void TestCommandRaw(void) {
   TestCommandRawParseRawReply001();
   TestCommandRawParseRawReply002();
+  TestCommandRawParseRawReply003();
+  TestCommandRawParseRawReply004();
 }
