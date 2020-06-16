@@ -115,7 +115,7 @@ static int readAndParseReply(Conn *conn, Reply *reply, int n) {
   INIT_REPLY(reply);
 
   for (i = n, ret = MY_OK_CODE; i > 0; --i) {
-    size = reply->types[reply->i] == TMPBULKSTR ? reply->sizes[reply->i] : DEFAULT_REPLY_SIZE;
+    size = reply->types[reply->i] == TMPBULKSTR ? reply->sizeForMultiLine : DEFAULT_REPLY_SIZE;
     ret = tryToReadString(conn, buf, size);
     if (ret == MY_ERR_CODE) break;
 
