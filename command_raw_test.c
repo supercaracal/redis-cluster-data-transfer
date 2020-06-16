@@ -233,10 +233,30 @@ static void TestCommandRawParseRawReply005(void) {
   freeReply(reply);
 }
 
+// Skip remained CRLFs
+static void TestCommandRawParseRawReply006(void) {
+  int ret;
+
+  Reply r, *reply;
+  reply = &r;
+
+  INIT_REPLY(reply);
+
+  ret = PublicForTestParseRawReply("\r\n+OK\r\n", 7, reply);
+  TEST_INT(0, ret == MY_OK_CODE, "return code", MY_OK_CODE, ret);
+  TEST_INT(0, reply->i == 1, "number of reply lines", 1, reply->i);
+  TEST_INT(0, reply->sizes[0] == 2, "reply line size", 2, reply->sizes[0]);
+  TEST_STR(0, strncmp(reply->lines[0], "OK", 2) == 0, "reply line string", "OK", reply->lines[0]);
+  TEST_STR(0, reply->types[0] == STRING, "reply line type", getReplyTypeCode(STRING), getReplyTypeCode(reply->types[0]));
+
+  freeReply(reply);
+}
+
 void TestCommandRaw(void) {
   TestCommandRawParseRawReply001();
   TestCommandRawParseRawReply002();
   TestCommandRawParseRawReply003();
   TestCommandRawParseRawReply004();
   TestCommandRawParseRawReply005();
+  TestCommandRawParseRawReply006();
 }
