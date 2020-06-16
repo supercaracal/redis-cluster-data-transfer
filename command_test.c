@@ -167,8 +167,45 @@ static void TestCommandParseReplyLine003(void) {
   freeReply(reply);
 }
 
+// Skip previous remained reply
+static void TestCommandParseReplyLine004(void) {
+  int i, j, ret;
+  Reply r, *reply;
+
+  char *buf[2] = {
+    "\r\n",
+    "+OK\r\n",
+  };
+
+  struct {
+    char *line; int size; ReplyType type;
+  } c[1] = {
+    {"OK", 2, STRING},
+  };
+
+  reply = &r;
+  INIT_REPLY(reply);
+  for (i = 1, j = 0, ret = MY_OK_CODE; i > 0; --i, ++j) {
+    ret = PublicForTestParseReplyLine(buf[j], reply);
+    if (ret == MY_ERR_CODE) break;
+    i += ret;
+  }
+
+  TEST_INT(0, ret == MY_OK_CODE, "return code", MY_OK_CODE, ret);
+  TEST_INT(0, reply->i == CASE_CNT(c), "number of reply lines", CASE_CNT(c), reply->i);
+
+  for (i = 0; i < CASE_CNT(c); ++i) {
+    TEST_INT(i+1, reply->sizes[i] == c[i].size, "reply line size", c[i].size, reply->sizes[i]);
+    TEST_STR(i+1, strncmp(reply->lines[i], c[i].line, c[i].size) == 0, "reply line string", c[i].line, reply->lines[i]);
+    TEST_STR(i+1, reply->types[i] == c[i].type, "reply line type", getReplyTypeCode(c[i].type), getReplyTypeCode(reply->types[i]));
+  }
+
+  freeReply(reply);
+}
+
 void TestCommand(void) {
   TestCommandParseReplyLine001();
   TestCommandParseReplyLine002();
   TestCommandParseReplyLine003();
+  TestCommandParseReplyLine004();
 }
