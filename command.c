@@ -44,15 +44,15 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
 static int parseBulkStringLength(const char *buf, Reply *reply) {
   int i = 0;
 
-  reply->nextIdxOfLastLine = atoi(buf);
+  reply->sizeForMultiLine = atoi(buf);
 
-  if (reply->nextIdxOfLastLine >= 0) {
+  if (reply->sizeForMultiLine >= 0) {
     reply->types[reply->i] = TMPBULKSTR;
     ++i;
-  } else if (reply->nextIdxOfLastLine == -1) {
+  } else if (reply->sizeForMultiLine == -1) {
     ADD_NULL_REPLY(reply);
   } else {
-    fprintf(stderr, "Not expected bulk string size: %d\n", reply->nextIdxOfLastLine);
+    fprintf(stderr, "Not expected bulk string size: %d\n", reply->sizeForMultiLine);
     exit(1);
   }
 
@@ -63,9 +63,10 @@ static int parseBulkString(const char *buf, Reply *reply) {
   int i = 0;
 
   // bulk string
-  reply->nextIdxOfLastLine -= copyReplyLineWithoutMeta(reply, buf, 0, STRING);
-  if (reply->nextIdxOfLastLine > 0) {
+  reply->sizeForMultiLine -= copyReplyLineWithoutMeta(reply, buf, 0, STRING);
+  if (reply->sizeForMultiLine > 0) {
     // multi line (e.g. CLUSTER NODES, INFO, ...)
+    reply->types[reply->i] = TMPBULKSTR;
     ++i;
   }
 

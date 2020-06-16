@@ -60,7 +60,7 @@
 } while (0)
 
 typedef enum { UNKNOWN, STRING, INTEGER, RAW, ERR, NIL, TMPBULKSTR, TMPARR } ReplyType;
-typedef struct { int size, i, nextIdxOfLastLine, *sizes; char **lines; ReplyType *types; } Reply;
+typedef struct { int size, i, nextIdxOfLastLine, sizeForMultiLine, *sizes; char **lines; ReplyType *types; } Reply;
 
 int command(Conn *, const char *, Reply *);
 int pipeline(Conn *, const char *, Reply *, int);
