@@ -75,13 +75,7 @@ static void compareValues(const Reply *a, const Reply *b, DiffResult *result) {
 static int fetchValues(Conn *conn, const Pipeline *pip, Reply *reply) {
   int ret;
 
-  ret = commandWithRawData(conn, pip->buf, reply, pip->i);
-  if (ret == MY_ERR_CODE) return ret;
-
-  while (reply->i < pip->cnt * 2) {
-    ret = readRemainedReplyLines(conn, reply);
-    if (ret == MY_ERR_CODE) break;
-  }
+  ret = commandWithRawData(conn, pip->buf, pip->i, reply, pip->cnt * 2);
   if (ret == MY_ERR_CODE) return ret;
   if (reply->i != pip->cnt * 2) {
     PRINT_MIXED_BINARY(pip->buf, pip->i); printf("\n");

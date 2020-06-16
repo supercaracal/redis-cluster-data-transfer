@@ -32,17 +32,17 @@
 
 #define EXPAND_REPLY_IF_NEEDED(r) do {\
   if (r->i == r->size) {\
-    void *__tmp;\
+    void *tttmp;\
     r->size *= 2;\
-    __tmp = realloc(r->lines, sizeof(char *) * r->size);\
-    ASSERT_REALLOC(__tmp, "for reply lines");\
-    r->lines = (char **) __tmp;\
-    __tmp = realloc(r->types, sizeof(ReplyType) * r->size);\
-    ASSERT_REALLOC(__tmp, "for reply types");\
-    r->types = (ReplyType *) __tmp;\
-    __tmp = realloc(r->sizes, sizeof(int) * r->size);\
-    ASSERT_REALLOC(__tmp, "for reply sizes");\
-    r->sizes = (int *) __tmp;\
+    tttmp = realloc(r->lines, sizeof(char *) * r->size);\
+    ASSERT_REALLOC(tttmp, "for reply lines");\
+    r->lines = (char **) tttmp;\
+    tttmp = realloc(r->types, sizeof(ReplyType) * r->size);\
+    ASSERT_REALLOC(tttmp, "for reply types");\
+    r->types = (ReplyType *) tttmp;\
+    tttmp = realloc(r->sizes, sizeof(int) * r->size);\
+    ASSERT_REALLOC(tttmp, "for reply sizes");\
+    r->sizes = (int *) tttmp;\
   }\
 } while (0)
 
@@ -60,11 +60,16 @@
 } while (0)
 
 typedef enum { UNKNOWN, STRING, INTEGER, RAW, ERR, NIL, TMPBULKSTR, TMPARR } ReplyType;
-typedef struct { int size, i, nextIdxOfLastLine, *sizes; char **lines; ReplyType *types; } Reply;
+typedef struct { int size, i, nextIdxOfLastLine, sizeForMultiLine, *sizes; char **lines; ReplyType *types; } Reply;
 
 int command(Conn *, const char *, Reply *);
 int pipeline(Conn *, const char *, Reply *, int);
 void freeReply(Reply *);
 void printReplyLines(const Reply *);
+char *getReplyTypeCode(ReplyType);
+
+#ifdef TEST
+int PublicForTestParseReplyLine(const char *, Reply *);
+#endif
 
 #endif  // COMMAND_H_

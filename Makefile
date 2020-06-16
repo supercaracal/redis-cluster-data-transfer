@@ -3,8 +3,11 @@ SHELL := /bin/bash
 SRCS  := net command command_raw cluster
 OBJS  := $(addsuffix .o,$(SRCS))
 
+TEST_SRCS := command command_raw
+TEST_OBJS := $(addsuffix _test.o,$(TEST_SRCS))
+
 CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
-CFLAGS += -Wall -Wextra -Wpedantic
+CFLAGS += -Wall -Wextra -Wpedantic -Wundef
 
 WORKER   ?= 8
 TIMEOUT  ?= 5
@@ -70,14 +73,19 @@ bin/dcli: CPPFLAGS += -DDEBUG
 bin/dcli: client.o $(OBJS)
 	$(call link)
 
+test: bin/test
+	@bin/test
+
+bin/test: CFLAGS += -g
+bin/test: CPPFLAGS += -DTEST
+bin/test: test.o $(TEST_OBJS) $(OBJS)
+	$(call link)
+
 lint:
 	@type cpplint
 	@cpplint *.h *.c
 
-test:
-	@echo TODO
-
 clean:
 	@rm -rf bin *.o
 
-.PHONY: build debug lint test clean
+.PHONY: build debug test lint clean

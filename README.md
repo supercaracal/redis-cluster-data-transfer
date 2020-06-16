@@ -25,6 +25,8 @@ I need a copy tool.
   * For fetching a key from source node
 * [RESTORE](https://redis.io/commands/restore)
   * For transferring a key to destination node
+* [PTTL](https://redis.io/commands/pttl)
+  * For `RESTORE` option
 
 ## Not supported
 * AUTH
@@ -36,7 +38,6 @@ so on and so forth
 
 ## TODO
 * Use non-blocking IO
-* Support [PTTL](https://redis.io/commands/pttl)
 
 ## Trial
 

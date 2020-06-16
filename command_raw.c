@@ -6,7 +6,13 @@
 #include "./command_raw.h"
 
 #define MAX_RECV_SIZE (1 << 12)
-#define NEED_MORE_REPLY -2
+
+#define ASSERT_SENT_SIZE(expected, actual) do {\
+  if ((expected) != (actual)) {\
+    fprintf(stderr, "Failed to send command: %d / %d\n", actual, expected);\
+    exit(1);\
+  }\
+} while (0)
 
 #define ASSERT_REPLY_PARSE(cond, msg) do {\
   if (!(cond)) {\
@@ -34,14 +40,10 @@
 
 static inline char *errNo2Code(int n) {
   switch (n) {
-    case 4:
-      return "EINTR";
-    case 11:
-      return "EAGAIN";
-    case 32:
-      return "EPIPE";
-    default:
-      return "!!!!!";
+    case  4: return "EINTR";
+    case 11: return "EAGAIN";
+    case 32: return "EPIPE";
+    default: return "!!!!!";
   }
 }
 
@@ -93,6 +95,7 @@ static inline void finalizeSimpleString(Reply *reply) {
       ADVANCE_REPLY_LINE(reply);
       break;
     case TMPBULKSTR:
+      reply->lines[reply->i][reply->nextIdxOfLastLine] = '\0';
       n = atoi(reply->lines[reply->i]);
       if (n >= 0) {
         free(reply->lines[reply->i]);
@@ -158,6 +161,7 @@ static inline void parseBulkStringAsBinary(Reply *reply, char c) {
       ADVANCE_REPLY_LINE(reply);
       return;
     }
+    ASSERT_REPLY_PARSE(0, "could not parse as a bulk string");
   }
 
   if (reply->lines[reply->i] == NULL) {
@@ -210,29 +214,38 @@ static int parseRawReply(const char *buf, int size, Reply *reply) {
   return reply->types[reply->i] == UNKNOWN ? MY_OK_CODE : NEED_MORE_REPLY;
 }
 
-int commandWithRawData(Conn *conn, const void *cmd, Reply *reply, int size) {
+int commandWithRawData(Conn *conn, const void *cmd, int size, Reply *reply, int expectedNumberOfLines) {
   int ret;
 
   ASSERT_CMD_SIZE(size);
 
   ret = tryToWriteToSocket(conn, cmd, size);
   if (ret == MY_ERR_CODE) return ret;
+  ASSERT_SENT_SIZE(size, ret);
 
   INIT_REPLY(reply);
-  return readRemainedReplyLines(conn, reply);
+  return readRemainedReplyLines(conn, reply, expectedNumberOfLines);
 }
 
-int readRemainedReplyLines(Conn *conn, Reply *reply) {
+int readRemainedReplyLines(Conn *conn, Reply *reply, int expectedNumberOfLines) {
   int ret;
   char buf[MAX_RECV_SIZE];
 
   ASSERT_REPLY_PTR(reply);
 
-  ret = tryToReadFromSocket(conn, buf, MAX_RECV_SIZE);
-  if (ret == MY_ERR_CODE) return ret;
+  ret = NEED_MORE_REPLY;
+  while (ret == NEED_MORE_REPLY || reply->i < expectedNumberOfLines) {
+    ret = tryToReadFromSocket(conn, buf, MAX_RECV_SIZE);
+    if (ret == MY_ERR_CODE) break;
 
-  ret = parseRawReply(buf, ret, reply);
-  if (ret == NEED_MORE_REPLY) readRemainedReplyLines(conn, reply);
+    ret = parseRawReply(buf, ret, reply);
+  }
 
-  return MY_OK_CODE;
+  return ret;
 }
+
+#ifdef TEST
+int PublicForTestParseRawReply(const char *buf, int size, Reply *reply) {
+  return parseRawReply(buf, size, reply);
+}
+#endif

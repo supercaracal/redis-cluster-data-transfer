@@ -2,7 +2,27 @@
 #include "./generic.h"
 #include "./command.h"
 
-#define MAX_REPLY_LINE_SIZE (1 << 16)
+#define MAX_REPLY_LINE_SIZE (1 << 13)
+
+static int tryToWriteString(Conn *conn, const char *str) {
+  if (fputs(str, conn->fw) == EOF) {
+    fprintf(stderr, "fputs(3): %s:%s\n", conn->addr.host, conn->addr.port);
+    return MY_ERR_CODE;
+  }
+  if (fflush(conn->fw) == EOF) {
+    fprintf(stderr, "fflush(3): %s:%s\n", conn->addr.host, conn->addr.port);
+    return MY_ERR_CODE;
+  }
+  return MY_OK_CODE;
+}
+
+static int tryToReadString(Conn *conn, char *buf, int size) {
+  if (fgets(buf, size + 3, conn->fr) == NULL) {  // \r\n\0
+    fprintf(stderr, "fgets(3): returns NULL: %s:%s\n", conn->addr.host, conn->addr.port);
+    return MY_ERR_CODE;
+  }
+  return MY_OK_CODE;
+}
 
 static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int offset, ReplyType t) {
   int len, realLen;
@@ -17,90 +37,118 @@ static inline int copyReplyLineWithoutMeta(Reply *reply, const char *buf, int of
   reply->lines[reply->i][len] = '\0';
   reply->types[reply->i] = t;
   reply->sizes[reply->i] = len;
-  reply->i++;
+  ADVANCE_REPLY_LINE(reply);
   return realLen;
 }
 
-static int executeCommand(Conn *conn, const char *cmd, Reply *reply, int n) {
-  int i, ret, size, readSize, isBulkStr;
-  char buf[MAX_REPLY_LINE_SIZE];
+static int parseBulkStringLength(const char *buf, Reply *reply) {
+  int i = 0;
 
-  if (fputs(cmd, conn->fw) == EOF) {
-    fprintf(stderr, "fputs(3): %s:%s\n", conn->addr.host, conn->addr.port);
-    return MY_ERR_CODE;
+  reply->sizeForMultiLine = atoi(buf);
+
+  if (reply->sizeForMultiLine >= 0) {
+    reply->types[reply->i] = TMPBULKSTR;
+    ++i;
+  } else if (reply->sizeForMultiLine == -1) {
+    ADD_NULL_REPLY(reply);
+  } else {
+    fprintf(stderr, "Not expected bulk string size: %d\n", reply->sizeForMultiLine);
+    exit(1);
   }
-  if (fflush(conn->fw) == EOF) {
-    fprintf(stderr, "fflush(3): %s:%s\n", conn->addr.host, conn->addr.port);
-    return MY_ERR_CODE;
+
+  return i;
+}
+
+static int parseBulkString(const char *buf, Reply *reply) {
+  int i = 0;
+
+  // bulk string
+  reply->sizeForMultiLine -= copyReplyLineWithoutMeta(reply, buf, 0, STRING);
+  if (reply->sizeForMultiLine > 0) {
+    // multi line (e.g. CLUSTER NODES, INFO, ...)
+    reply->types[reply->i] = TMPBULKSTR;
+    ++i;
   }
+
+  return i;
+}
+
+// @see https://redis.io/topics/protocol Redis Protocol specification
+static int parseReplyLine(const char *buf, Reply *reply) {
+  int i = 0;
+
+  if (reply->types[reply->i] == UNKNOWN) {
+    switch (buf[0]) {
+      case '+':
+        copyReplyLineWithoutMeta(reply, buf, 1, STRING);
+        break;
+      case '-':
+        copyReplyLineWithoutMeta(reply, buf, 1, ERR);
+        break;
+      case ':':
+        copyReplyLineWithoutMeta(reply, buf, 1, INTEGER);
+        break;
+      case '$':
+        i += parseBulkStringLength(buf + 1, reply);
+        break;
+      case '*':
+        i += atoi(buf + 1);
+        break;
+      default:
+        ++i;  // Not expected token, Skip last remained reply line
+        break;
+    }
+  } else if (reply->types[reply->i] == TMPBULKSTR) {
+    i += parseBulkString(buf, reply);
+  } else {
+    fprintf(stderr, "Not expected reply line: %s: %s\n", getReplyTypeCode(reply->types[reply->i]), buf);
+    exit(1);
+  }
+
+  return i;
+}
+
+static int readAndParseReply(Conn *conn, Reply *reply, int n) {
+  char buf[MAX_REPLY_LINE_SIZE];
+  int i, size, ret;
 
   INIT_REPLY(reply);
-  for (i = n, size = DEFAULT_REPLY_SIZE, ret = MY_OK_CODE, isBulkStr = 0; i > 0; --i) {
-    EXPAND_REPLY_IF_NEEDED(reply);
-    if (fgets(buf, size + 3, conn->fr) == NULL) {  // \r \n \0
-      freeReply(reply);
-      fprintf(stderr, "fgets(3): returns NULL, trying to reconnect to %s:%s\n", conn->addr.host, conn->addr.port);
-      return reconnect(conn) == MY_OK_CODE ? executeCommand(conn, cmd, reply, n) : MY_ERR_CODE;
-    }
 
-    // @see https://redis.io/topics/protocol Redis Protocol specification
-    if (isBulkStr) {
-      // bulk string
-      readSize = copyReplyLineWithoutMeta(reply, buf, 0, STRING);
-      if (readSize < size) {
-        // multi line (e.g. CLUSTER NODES, INFO, ...)
-        size -= readSize;
-        if (size > 0) ++i;
-      } else {
-        size = DEFAULT_REPLY_SIZE;
-        isBulkStr = 0;
-      }
-    } else {
-      switch (buf[0]) {
-        case '+':
-          copyReplyLineWithoutMeta(reply, buf, 1, STRING);
-          break;
-        case '-':
-          copyReplyLineWithoutMeta(reply, buf, 1, ERR);
-          fprintf(stderr, "%s:%s says %s\n", conn->addr.host, conn->addr.port, LAST_LINE(reply));
-          ret = MY_ERR_CODE;
-          break;
-        case ':':
-          copyReplyLineWithoutMeta(reply, buf, 1, INTEGER);
-          break;
-        case '$':
-          size = atoi(buf + 1);
-          if (size >= 0) {
-            ++i;
-            isBulkStr = 1;
-          } else if (size == -1) {
-            ADD_NULL_REPLY(reply);
-          }
-          break;
-        case '*':
-          i += atoi(buf + 1);
-          break;
-        default:
-          // Not expected token, Skip last remained reply line
-          ++i;
-          break;
-      }
-    }
+  for (i = n, ret = MY_OK_CODE; i > 0; --i) {
+    size = reply->types[reply->i] == TMPBULKSTR ? reply->sizeForMultiLine : DEFAULT_REPLY_SIZE;
+    ret = tryToReadString(conn, buf, size);
+    if (ret == MY_ERR_CODE) break;
+
+    ret = parseReplyLine(buf, reply);
+    if (ret == MY_ERR_CODE) break;
+    i += ret;
   }
+
+  if (ret == MY_ERR_CODE) freeReply(reply);
 
   return ret;
 }
 
 int command(Conn *conn, const char *cmd, Reply *reply) {
   char buf[MAX_CMD_SIZE];
+  int ret;
 
   snprintf(buf, MAX_CMD_SIZE, "%s\r\n", cmd);
-  return executeCommand(conn, buf, reply, 1);
+
+  ret = tryToWriteString(conn, buf);
+  if (ret == MY_ERR_CODE) return ret;
+
+  return readAndParseReply(conn, reply, 1);
 }
 
 
 int pipeline(Conn *conn, const char *cmd, Reply *reply, int n) {
-  return executeCommand(conn, cmd, reply, n);
+  int ret;
+
+  ret = tryToWriteString(conn, cmd);
+  if (ret == MY_ERR_CODE) return ret;
+
+  return readAndParseReply(conn, reply, n);
 }
 
 void freeReply(Reply *reply) {
@@ -138,3 +186,22 @@ void printReplyLines(const Reply *reply) {
     }
   }
 }
+
+char *getReplyTypeCode(ReplyType r) {
+  switch (r) {
+    case STRING: return "STRING";
+    case INTEGER: return "INTEGER";
+    case RAW: return "RAW";
+    case ERR: return "ERR";
+    case NIL: return "NIL";
+    case TMPBULKSTR: return "TMPBULKSTR";
+    case TMPARR: return "TMPARR";
+    default: return "UNKNOWN";
+  }
+}
+
+#ifdef TEST
+int PublicForTestParseReplyLine(const char *buf, Reply *reply) {
+  return parseReplyLine(buf, reply);
+}
+#endif

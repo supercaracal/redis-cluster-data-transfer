@@ -1,3 +1,4 @@
+#include <string.h>
 #include "./generic.h"
 #include "./command.h"
 #include "./command_raw.h"
@@ -36,25 +37,41 @@ static inline void countRestoreResult(const Reply *reply, MigrationResult *resul
   }
 }
 
-static inline void appendRestoreCmd(Pipeline *pip, const char *key, int keySize, const char *payload, int payloadSize) {
+static inline void appendRestoreCmd(Pipeline *pip,
+    const char *key, int keySize,
+    const char *payload, int payloadSize,
+    const char *ttl, int ttlSize) {
   int i, chunkSize;
 
-  chunkSize = 12;
+  chunkSize = 32;
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "*5\r\n");
+
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$7\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "RESTORE\r\n");
+
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", keySize);
   for (i = 0; i < keySize; ++i) pip->buf[pip->i++] = key[i];
   pip->buf[pip->i++] = '\r';
   pip->buf[pip->i++] = '\n';
-  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$1\r\n");
-  pip->i += snprintf(&pip->buf[pip->i], chunkSize, "%d\r\n", 0);  // TTL msec
+
+  if (strncmp(ttl, "-1", 2) == 0) {
+    pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$1\r\n");
+    pip->i += snprintf(&pip->buf[pip->i], chunkSize, "0\r\n");
+  } else {
+    pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", ttlSize);
+    for (i = 0; i < ttlSize; ++i) pip->buf[pip->i++] = ttl[i];
+    pip->buf[pip->i++] = '\r';
+    pip->buf[pip->i++] = '\n';
+  }
+
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$%d\r\n", payloadSize);
   for (i = 0; i < payloadSize; ++i) pip->buf[pip->i++] = payload[i];
   pip->buf[pip->i++] = '\r';
   pip->buf[pip->i++] = '\n';
+
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "$7\r\n");
   pip->i += snprintf(&pip->buf[pip->i], chunkSize, "REPLACE\r\n");
+
   pip->cnt++;
 }
 
@@ -63,33 +80,29 @@ static void transferKeys(Conn *c, const Reply *keyPayloads, MigrationResult *res
   Reply reply;
   int i, ret;
 
-  for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 2) {
+  for (i = pip.cnt = pip.i = 0; i < keyPayloads->i; i += 3) {
     ASSERT_RESTORE_DATA((keyPayloads->types[i] == RAW), "must be a key");
+    ASSERT_RESTORE_DATA((keyPayloads->types[i+1] == INTEGER), "must be a ttl msec");
 
-    if (keyPayloads->types[i+1] == NIL) {
+    if (keyPayloads->types[i+2] == NIL || strncmp(keyPayloads->lines[i+1], "-2", 2) == 0) {
       result->skipped++;
     } else {
-      ASSERT_RESTORE_DATA((keyPayloads->types[i+1] == RAW), "must be a payload");
-      appendRestoreCmd(&pip, keyPayloads->lines[i], keyPayloads->sizes[i], keyPayloads->lines[i+1], keyPayloads->sizes[i+1]);
+      ASSERT_RESTORE_DATA((keyPayloads->types[i+2] == RAW), "must be a payload");
+      appendRestoreCmd(&pip,
+          keyPayloads->lines[i], keyPayloads->sizes[i],
+          keyPayloads->lines[i+2], keyPayloads->sizes[i+2],
+          keyPayloads->lines[i+1], keyPayloads->sizes[i+1]);
     }
 
-    if (pip.cnt % PIPELINING_SIZE > 0 && i + 2 < keyPayloads->i) continue;
+    if (pip.cnt % PIPELINING_SIZE > 0 && i + 3 < keyPayloads->i) continue;
     if (pip.cnt == 0) continue;
 
-    ret = commandWithRawData(c, pip.buf, &reply, pip.i);
+    ret = commandWithRawData(c, pip.buf, pip.i, &reply, pip.cnt);
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
-      while (reply.i < pip.cnt) {
-        ret = readRemainedReplyLines(c, &reply);
-        if (ret == MY_ERR_CODE) break;
-      }
-      if (ret == MY_OK_CODE) {
-        ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
-        countRestoreResult(&reply, result);
-      } else {
-        result->failed += pip.cnt;
-      }
+      ASSERT_RESTORE_DATA((reply.i == pip.cnt), "lack or too much reply lines");
+      countRestoreResult(&reply, result);
     }
 
     pip.cnt = pip.i = 0;
@@ -103,29 +116,19 @@ static void fetchAndTransferKeys(Conn *src, Conn *dest, const Reply *keys, Migra
   int i, ret;
 
   for (i = pip.i = pip.cnt = 0; i < keys->i; ++i) {
-    pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 2, "ECHO %s\r\nDUMP %s\r\n", keys->lines[i], keys->lines[i]);
+    pip.i += snprintf(&pip.buf[pip.i], MAX_KEY_SIZE * 3,
+        "ECHO %s\r\nPTTL %s\r\nDUMP %s\r\n", keys->lines[i], keys->lines[i], keys->lines[i]);
     pip.cnt++;
 
-    if ((i + 1) % PIPELINING_SIZE != 0 && i < keys->i - 1) continue;
+    if (pip.cnt % PIPELINING_SIZE > 0 && i + 1 < keys->i) continue;
+    if (pip.cnt == 0) continue;
 
-    ret = commandWithRawData(src, pip.buf, &reply, pip.i);
+    ret = commandWithRawData(src, pip.buf, pip.i, &reply, pip.cnt * 3);
     if (ret == MY_ERR_CODE) {
       result->failed += pip.cnt;
     } else {
-      while (reply.i < pip.cnt * 2) {
-        ret = readRemainedReplyLines(src, &reply);
-        if (ret == MY_ERR_CODE) break;
-      }
-      if (ret == MY_OK_CODE) {
-        if ((reply.i != pip.cnt * 2)) {
-          PRINT_MIXED_BINARY(pip.buf, pip.i); printf("\n");
-          printReplyLines(&reply);
-        }
-        ASSERT_RESTORE_DATA((reply.i == pip.cnt * 2), "key and payload pairs are wrong");
-        transferKeys(dest, &reply, result);
-      } else {
-        result->failed += pip.cnt;
-      }
+      ASSERT_RESTORE_DATA((reply.i == pip.cnt * 3), "key and payload pairs are wrong");
+      transferKeys(dest, &reply, result);
     }
 
     pip.cnt = pip.i = 0;
