@@ -68,4 +68,8 @@ void freeReply(Reply *);
 void printReplyLines(const Reply *);
 char *getReplyTypeCode(ReplyType);
 
+#ifdef TEST
+int PublicForTestParseReplyLine(const char *, Reply *);
+#endif
+
 #endif  // COMMAND_H_

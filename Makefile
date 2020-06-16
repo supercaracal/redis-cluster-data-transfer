@@ -3,7 +3,7 @@ SHELL := /bin/bash
 SRCS  := net command command_raw cluster
 OBJS  := $(addsuffix .o,$(SRCS))
 
-TEST_SRCS := command_raw
+TEST_SRCS := command command_raw
 TEST_OBJS := $(addsuffix _test.o,$(TEST_SRCS))
 
 CFLAGS += -std=c11 -D_POSIX_C_SOURCE=200809
