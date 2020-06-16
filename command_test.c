@@ -36,8 +36,44 @@ static void TestCommandParseReplyLine001(void) {
   }
 }
 
-// CLUSTER SLOTS: Redis version 3
+// Skip previous remained reply
 static void TestCommandParseReplyLine002(void) {
+  int i, j, ret;
+  Reply r, *reply;
+
+  char *buf[2] = {
+    "\r\n",
+    "+OK\r\n",
+  };
+
+  struct {
+    char *line; int size; ReplyType type;
+  } c[1] = {
+    {"OK", 2, STRING},
+  };
+
+  reply = &r;
+  INIT_REPLY(reply);
+  for (i = 1, j = 0, ret = MY_OK_CODE; i > 0; --i, ++j) {
+    ret = PublicForTestParseReplyLine(buf[j], reply);
+    if (ret == MY_ERR_CODE) break;
+    i += ret;
+  }
+
+  TEST_INT(0, ret == MY_OK_CODE, "return code", MY_OK_CODE, ret);
+  TEST_INT(0, reply->i == CASE_CNT(c), "number of reply lines", CASE_CNT(c), reply->i);
+
+  for (i = 0; i < CASE_CNT(c); ++i) {
+    TEST_INT(i+1, reply->sizes[i] == c[i].size, "reply line size", c[i].size, reply->sizes[i]);
+    TEST_STR(i+1, strncmp(reply->lines[i], c[i].line, c[i].size) == 0, "reply line string", c[i].line, reply->lines[i]);
+    TEST_STR(i+1, reply->types[i] == c[i].type, "reply line type", getReplyTypeCode(c[i].type), getReplyTypeCode(reply->types[i]));
+  }
+
+  freeReply(reply);
+}
+
+// CLUSTER SLOTS: Redis version 3
+static void TestCommandParseReplyLine003(void) {
   int i, j, ret;
   Reply r, *reply;
 
@@ -121,8 +157,111 @@ static void TestCommandParseReplyLine002(void) {
   freeReply(reply);
 }
 
+// CLUSTER SLOTS: Redis version 5
+static void TestCommandParseReplyLine004(void) {
+  int i, j, ret;
+  Reply r, *reply;
+
+  char *buf[46] = {
+    "*3\r\n",
+    "*4\r\n",
+    ":5461\r\n",
+    ":10922\r\n",
+    "*3\r\n",
+    "$11\r\n",
+    "172.20.0.10\r\n",
+    ":6379\r\n",
+    "$40\r\n",
+    "11272f8ae3164104f179030e73ce8c10d87bbf1a\r\n",
+    "*3\r\n",
+    "$10\r\n",
+    "172.20.0.5\r\n",
+    ":6379\r\n",
+    "$40\r\n",
+    "98a78f4f3deefd6b3168c86069eb8047088043de\r\n",
+    "*4\r\n",
+    ":10923\r\n",
+    ":16383\r\n",
+    "*3\r\n",
+    "$10\r\n",
+    "172.20.0.4\r\n",
+    ":6379\r\n",
+    "$40\r\n",
+    "6c77d7e7a269ea160bc09fb0c57ac0795bed05e4\r\n",
+    "*3\r\n",
+    "$10\r\n",
+    "172.20.0.6\r\n",
+    ":6379\r\n",
+    "$40\r\n",
+    "22903878f6af8e17ea114e35fd3856ce046ddf8c\r\n",
+    "*4\r\n",
+    ":0\r\n",
+    ":5460\r\n",
+    "*3\r\n",
+    "$10\r\n",
+    "172.20.0.8\r\n",
+    ":6379\r\n",
+    "$40\r\n",
+    "06dd3649b8cd60d308f8cba736e201057b469573\r\n",
+    "*3\r\n",
+    "$11\r\n",
+    "172.20.0.11\r\n",
+    ":6379\r\n",
+    "$40\r\n",
+    "79aadb4c9439e3d349521e170d1dbe5a61682360\r\n",
+  };
+
+  struct {
+    char *line; int size; ReplyType type;
+  } c[24] = {
+    {"5461", 4, INTEGER},
+    {"10922", 5, INTEGER},
+    {"172.20.0.10", 11, STRING},
+    {"6379", 4, INTEGER},
+    {"11272f8ae3164104f179030e73ce8c10d87bbf1a", 40, STRING},
+    {"172.20.0.5", 10, STRING},
+    {"6379", 4, INTEGER},
+    {"98a78f4f3deefd6b3168c86069eb8047088043de", 40, STRING},
+    {"10923", 5, INTEGER},
+    {"16383", 5, INTEGER},
+    {"172.20.0.4", 10, STRING},
+    {"6379", 4, INTEGER},
+    {"6c77d7e7a269ea160bc09fb0c57ac0795bed05e4", 40, STRING},
+    {"172.20.0.6", 10, STRING},
+    {"6379", 4, INTEGER},
+    {"22903878f6af8e17ea114e35fd3856ce046ddf8c", 40, STRING},
+    {"0", 1, INTEGER},
+    {"5460", 4, INTEGER},
+    {"172.20.0.8", 10, STRING},
+    {"6379", 4, INTEGER},
+    {"06dd3649b8cd60d308f8cba736e201057b469573", 40, STRING},
+    {"172.20.0.11", 11, STRING},
+    {"6379", 4, INTEGER},
+    {"79aadb4c9439e3d349521e170d1dbe5a61682360", 40, STRING},
+  };
+
+  reply = &r;
+  INIT_REPLY(reply);
+  for (i = 1, j = 0, ret = MY_OK_CODE; i > 0; --i, ++j) {
+    ret = PublicForTestParseReplyLine(buf[j], reply);
+    if (ret == MY_ERR_CODE) break;
+    i += ret;
+  }
+
+  TEST_INT(0, ret == MY_OK_CODE, "return code", MY_OK_CODE, ret);
+  TEST_INT(0, reply->i == CASE_CNT(c), "number of reply lines", CASE_CNT(c), reply->i);
+
+  for (i = 0; i < CASE_CNT(c); ++i) {
+    TEST_INT(i+1, reply->sizes[i] == c[i].size, "reply line size", c[i].size, reply->sizes[i]);
+    TEST_STR(i+1, strncmp(reply->lines[i], c[i].line, c[i].size) == 0, "reply line string", c[i].line, reply->lines[i]);
+    TEST_STR(i+1, reply->types[i] == c[i].type, "reply line type", getReplyTypeCode(c[i].type), getReplyTypeCode(reply->types[i]));
+  }
+
+  freeReply(reply);
+}
+
 // CLUSTER NODES
-static void TestCommandParseReplyLine003(void) {
+static void TestCommandParseReplyLine005(void) {
   int i, j, ret;
   Reply r, *reply;
 
@@ -167,45 +306,10 @@ static void TestCommandParseReplyLine003(void) {
   freeReply(reply);
 }
 
-// Skip previous remained reply
-static void TestCommandParseReplyLine004(void) {
-  int i, j, ret;
-  Reply r, *reply;
-
-  char *buf[2] = {
-    "\r\n",
-    "+OK\r\n",
-  };
-
-  struct {
-    char *line; int size; ReplyType type;
-  } c[1] = {
-    {"OK", 2, STRING},
-  };
-
-  reply = &r;
-  INIT_REPLY(reply);
-  for (i = 1, j = 0, ret = MY_OK_CODE; i > 0; --i, ++j) {
-    ret = PublicForTestParseReplyLine(buf[j], reply);
-    if (ret == MY_ERR_CODE) break;
-    i += ret;
-  }
-
-  TEST_INT(0, ret == MY_OK_CODE, "return code", MY_OK_CODE, ret);
-  TEST_INT(0, reply->i == CASE_CNT(c), "number of reply lines", CASE_CNT(c), reply->i);
-
-  for (i = 0; i < CASE_CNT(c); ++i) {
-    TEST_INT(i+1, reply->sizes[i] == c[i].size, "reply line size", c[i].size, reply->sizes[i]);
-    TEST_STR(i+1, strncmp(reply->lines[i], c[i].line, c[i].size) == 0, "reply line string", c[i].line, reply->lines[i]);
-    TEST_STR(i+1, reply->types[i] == c[i].type, "reply line type", getReplyTypeCode(c[i].type), getReplyTypeCode(reply->types[i]));
-  }
-
-  freeReply(reply);
-}
-
 void TestCommand(void) {
   TestCommandParseReplyLine001();
   TestCommandParseReplyLine002();
   TestCommandParseReplyLine003();
   TestCommandParseReplyLine004();
+  TestCommandParseReplyLine005();
 }
