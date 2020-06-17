@@ -306,10 +306,59 @@ static void TestCommandParseReplyLine005(void) {
   freeReply(reply);
 }
 
+// Meta chars
+static void TestCommandParseReplyLine006(void) {
+  int i, j, ret;
+  Reply r, *reply;
+
+  char *buf[10] = {
+    "$1\r\n",
+    "+\r\n",
+    "$1\r\n",
+    "-\r\n",
+    "$1\r\n",
+    ":\r\n",
+    "$1\r\n",
+    "$\r\n",
+    "$1\r\n",
+    "*\r\n",
+  };
+
+  struct {
+    char *line; int size; ReplyType type;
+  } c[5] = {
+    {"+", 1, STRING},
+    {"-", 1, STRING},
+    {":", 1, STRING},
+    {"$", 1, STRING},
+    {"*", 1, STRING},
+  };
+
+  reply = &r;
+  INIT_REPLY(reply);
+  for (i = 5, j = 0, ret = MY_OK_CODE; i > 0; --i, ++j) {
+    ret = PublicForTestParseReplyLine(buf[j], reply);
+    if (ret == MY_ERR_CODE) break;
+    i += ret;
+  }
+
+  TEST_INT(0, ret == MY_OK_CODE, "return code", MY_OK_CODE, ret);
+  TEST_INT(0, reply->i == CASE_CNT(c), "number of reply lines", CASE_CNT(c), reply->i);
+
+  for (i = 0; i < CASE_CNT(c); ++i) {
+    TEST_INT(i+1, reply->sizes[i] == c[i].size, "reply line size", c[i].size, reply->sizes[i]);
+    TEST_STR(i+1, strncmp(reply->lines[i], c[i].line, c[i].size) == 0, "reply line string", c[i].line, reply->lines[i]);
+    TEST_STR(i+1, reply->types[i] == c[i].type, "reply line type", getReplyTypeCode(c[i].type), getReplyTypeCode(reply->types[i]));
+  }
+
+  freeReply(reply);
+}
+
 void TestCommand(void) {
   TestCommandParseReplyLine001();
   TestCommandParseReplyLine002();
   TestCommandParseReplyLine003();
   TestCommandParseReplyLine004();
   TestCommandParseReplyLine005();
+  TestCommandParseReplyLine006();
 }
