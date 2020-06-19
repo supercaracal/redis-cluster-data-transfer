@@ -38,43 +38,69 @@ static char *trim(char *str) {
   return head;
 }
 
-int main(int argc, char **argv) {
-  char buf[MAX_CMD_SIZE], *cmd;
+static void repl(Cluster *cluster, char *buf, int size, Reply *reply) {
+  char *cmd;
   int ret;
-  Cluster cluster;
-  Reply reply;
 
-  if (argc != 2) {
-    fprintf(stderr, "Usage: bin/cli host:port\n");
-    exit(1);
-  }
-
-  ASSERT(fetchClusterState(argv[1], &cluster));
-  printClusterNodes(&cluster);
+  printClusterNodes(cluster);
 
   while (1) {
     printf(">> ");
 
-    if (fgets(buf, sizeof(buf), stdin) == NULL) {
-      fprintf(stderr, "fgets(3)\n");
-      continue;
-    }
+    if (fgets(buf, size, stdin) == NULL) break;
 
     cmd = trim(buf);
     if (cmd[0] == '\0') continue;
 
-    ret = execute(&cluster, cmd, &reply);
+    ret = execute(cluster, cmd, reply);
     if (ret == MY_ERR_CODE) {
-      freeReply(&reply);
+      freeReply(reply);
       continue;
     }
     if (ret == EXIT_LOOP) {
-      freeReply(&reply);
+      freeReply(reply);
       break;
     }
 
-    printReplyLines(&reply);
-    freeReply(&reply);
+    printReplyLines(reply);
+    freeReply(reply);
+  }
+}
+
+static void bulk(Cluster *cluster, char *buf, int size, Reply *reply) {
+  char *cmd;
+
+  while (fgets(buf, size, stdin) != NULL) {
+    cmd = trim(buf);
+    if (cmd[0] == '\0') continue;
+
+    if (execute(cluster, buf, reply) == MY_ERR_CODE) {
+      freeReply(reply);
+      break;
+    }
+
+    printReplyLines(reply);
+    freeReply(reply);
+  }
+}
+
+int main(int argc, char **argv) {
+  char buf[MAX_CMD_SIZE];
+  Cluster cluster;
+  Reply reply;
+
+  if (argc < 2 || argc > 3) {
+    fprintf(stderr, "Usage: bin/cli host:port [--bulk]\n");
+    fprintf(stderr, "  --bulk    bulk execution\n");
+    exit(1);
+  }
+
+  ASSERT(fetchClusterState(argv[1], &cluster));
+
+  if (argc == 2) {
+    repl(&cluster, buf, MAX_CMD_SIZE, &reply);
+  } else {
+    bulk(&cluster, buf, MAX_CMD_SIZE, &reply);
   }
 
   ASSERT(freeClusterState(&cluster));
