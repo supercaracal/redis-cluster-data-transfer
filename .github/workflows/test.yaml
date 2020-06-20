@@ -22,19 +22,19 @@ jobs:
         uses: actions/checkout@v1
 
       - name: Build
-        run: CC=${{ CC }} make build
+        run: CC=${{ matrix.cc }} make build
 
       - name: Clean
         run: make clean
 
       - name: Debug
-        run: CC=${{ CC }} make debug
+        run: CC=${{ matrix.cc }} make debug
 
       - name: Clean
         run: make clean
 
       - name: Test
-        run: CC=${{ CC }} make test
+        run: CC=${{ matrix.cc }} make test
 
       - name: Clean
         run: make clean
