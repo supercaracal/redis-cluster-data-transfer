@@ -23,10 +23,10 @@ I need a copy tool.
   * For listing keys in a slot
 * [DUMP](https://redis.io/commands/dump)
   * For fetching a key from source node
+* [PTTL](https://redis.io/commands/pttl)
+  * For fetching remained TTL milliseconds of a key
 * [RESTORE](https://redis.io/commands/restore)
   * For transferring a key to destination node
-* [PTTL](https://redis.io/commands/pttl)
-  * For `RESTORE` option
 
 ## Not supported
 * AUTH
