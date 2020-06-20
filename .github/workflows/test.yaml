@@ -15,25 +15,29 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest", "macos-latest"]
+        cc: ["gcc", "clang"]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out code
         uses: actions/checkout@v1
 
       - name: Build
-        run: make build
+        run: CC=${{ CC }} make build
 
       - name: Clean
         run: make clean
 
       - name: Debug
-        run: make debug
+        run: CC=${{ CC }} make debug
 
       - name: Clean
         run: make clean
 
       - name: Test
-        run: make test
+        run: CC=${{ CC }} make test
+
+      - name: Clean
+        run: make clean
 
       - name: Set up Python
         uses: actions/setup-python@v2
