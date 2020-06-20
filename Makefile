@@ -1,4 +1,4 @@
-CC    := gcc
+CC    ?= gcc
 SHELL := /bin/bash
 SRCS  := net command command_raw cluster
 OBJS  := $(addsuffix .o,$(SRCS))
