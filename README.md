@@ -73,7 +73,7 @@ $ bin/exe 127.0.0.1:16371 127.0.0.1:16381 -C
 ```
 
 ## Performance
-It takes approximately 5 minutes while 10 million keys are copied.
+It takes approximately 3 minutes while 10 million keys are copied. This program is I/O bound.
 
 ## See also
 * [Netflix/dynomite](https://github.com/Netflix/dynomite)
