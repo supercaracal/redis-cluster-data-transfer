@@ -46,6 +46,7 @@ $ git clone https://github.com/supercaracal/redis-cluster-data-transfer.git
 $ cd redis-cluster-data-transfer/
 $ make
 $ docker-compose up -d
+
 $ bin/cli 127.0.0.1:16371
 >> set key1 1
 OK
@@ -54,7 +55,21 @@ OK
 >> set key3 3
 OK
 >> quit
+
 $ bin/exe 127.0.0.1:16371 127.0.0.1:16381
+3 keys were found
+3 keys were copied
+0 keys were skipped
+0 keys were failed
+
+$ bin/diff 127.0.0.1:16371 127.0.0.1:16381
+3 keys were found
+3 keys were same
+0 keys were different
+0 keys were deficient
+0 keys were failed
+0 keys were skipped
+
 $ bin/cli 127.0.0.1:16381
 >> get key1
 1
@@ -79,5 +94,7 @@ It takes approximately 3 minutes while 10 million keys are copied. This program 
 * [Netflix/dynomite](https://github.com/Netflix/dynomite)
 * [sripathikrishnan/redis-rdb-tools](https://github.com/sripathikrishnan/redis-rdb-tools)
 * [alibaba/RedisShake](https://github.com/alibaba/RedisShake)
+* [alibaba/RedisFullCheck](https://github.com/alibaba/RedisFullCheck)
 * [vipshop/redis-migrate-tool](https://github.com/vipshop/redis-migrate-tool)
 * [frsyuki/embulk-plugin-redis](https://github.com/frsyuki/embulk-plugin-redis)
+* [opstree/redis-migration](https://github.com/opstree/redis-migration)
