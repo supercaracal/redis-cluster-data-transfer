@@ -1,15 +1,28 @@
-MAKEFLAGS += --warn-undefined-variables
-SHELL     := /bin/bash -euo pipefail
-CC        ?= gcc
-SRCS      := net command command_raw cluster
-OBJS      := $(addsuffix .o,$(SRCS))
-TEST_SRCS := command command_raw
-TEST_OBJS := $(addsuffix _test.o,$(TEST_SRCS))
-CFLAGS    += -std=c11 -D_POSIX_C_SOURCE=200809
-CFLAGS    += -Wall -Wextra -Wpedantic -Wundef
-WORKER    ?= 8
-TIMEOUT   ?= 5
-PIPELINE  ?= 10
+MAKEFLAGS   += --warn-undefined-variables
+SHELL       := /bin/bash -euo pipefail
+CC          ?= gcc
+CFLAGS      += -std=c11
+CFLAGS      += -D_POSIX_C_SOURCE=200809
+CFLAGS      += -Wall
+CFLAGS      += -Wextra
+CFLAGS      += -Wpedantic
+CFLAGS      += -Wundef
+CPPFLAGS    ?=
+TARGET_ARCH ?=
+LOADLIBES   ?=
+LDFLAGS     ?=
+LDLIBS      ?=
+SRCS        += net
+SRCS        += command
+SRCS        += command_raw
+SRCS        += cluster
+OBJS        := $(addsuffix .o,$(SRCS))
+TEST_SRCS   += command
+TEST_SRCS   += command_raw
+TEST_OBJS   := $(addsuffix _test.o,$(TEST_SRCS))
+WORKER      ?= 8
+TIMEOUT     ?= 5
+PIPELINE    ?= 10
 
 define link
 	@mkdir -p bin
