@@ -1,5 +1,5 @@
 ---
-version: '3'
+version: '3.9'
 services:
   src1: &src
     image: "redis:3.0.2"
@@ -10,6 +10,11 @@ services:
                    --cluster-enabled      yes
                    --cluster-config-file  nodes.conf
                    --cluster-node-timeout 5000
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: '3s'
+      timeout: '1s'
+      retries: 10
     ports:
       - "16371:6379"
   src2:
@@ -33,16 +38,31 @@ services:
     ports:
       - "16376:6379"
   src-redis-cluster:
-    build: "docker/redis_cluster"
-    environment:
-      - "HOST_PREFIX=src"
+    image: "redis:5.0.9"
+    command: >
+      bash -c "apt-get update
+      && apt-get install --no-install-recommends --no-install-suggests -y dnsutils
+      && yes yes | redis-cli --cluster create
+      $$(dig src1 +short):6379
+      $$(dig src2 +short):6379
+      $$(dig src3 +short):6379
+      $$(dig src4 +short):6379
+      $$(dig src5 +short):6379
+      $$(dig src6 +short):6379
+      --cluster-replicas 1"
     depends_on:
-      - "src1"
-      - "src2"
-      - "src3"
-      - "src4"
-      - "src5"
-      - "src6"
+      src1:
+        condition: service_healthy
+      src2:
+        condition: service_healthy
+      src3:
+        condition: service_healthy
+      src4:
+        condition: service_healthy
+      src5:
+        condition: service_healthy
+      src6:
+        condition: service_healthy
   dest1: &dest
     image: "redis:5.0.7"
     command: >
@@ -52,6 +72,11 @@ services:
                    --cluster-enabled      yes
                    --cluster-config-file  nodes.conf
                    --cluster-node-timeout 5000
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: '3s'
+      timeout: '1s'
+      retries: 10
     ports:
       - "16381:6379"
   dest2:
@@ -75,16 +100,31 @@ services:
     ports:
       - "16386:6379"
   dest-redis-cluster:
-    build: "docker/redis_cluster"
-    environment:
-      - "HOST_PREFIX=dest"
+    image: "redis:5.0.9"
+    command: >
+      bash -c "apt-get update
+      && apt-get install --no-install-recommends --no-install-suggests -y dnsutils
+      && yes yes | redis-cli --cluster create
+      $$(dig dest1 +short):6379
+      $$(dig dest2 +short):6379
+      $$(dig dest3 +short):6379
+      $$(dig dest4 +short):6379
+      $$(dig dest5 +short):6379
+      $$(dig dest6 +short):6379
+      --cluster-replicas 1"
     depends_on:
-      - "dest1"
-      - "dest2"
-      - "dest3"
-      - "dest4"
-      - "dest5"
-      - "dest6"
+      dest1:
+        condition: service_healthy
+      dest2:
+        condition: service_healthy
+      dest3:
+        condition: service_healthy
+      dest4:
+        condition: service_healthy
+      dest5:
+        condition: service_healthy
+      dest6:
+        condition: service_healthy
 networks:
   default:
     ipam:
