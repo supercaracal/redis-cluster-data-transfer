@@ -4,12 +4,13 @@ services:
   src1: &src
     image: "redis:3.0.2"
     command: >
-      redis-server --maxmemory            64mb
-                   --maxmemory-policy     allkeys-lru
-                   --appendonly           yes
-                   --cluster-enabled      yes
-                   --cluster-config-file  nodes.conf
-                   --cluster-node-timeout 5000
+      redis-server
+      --maxmemory            64mb
+      --maxmemory-policy     allkeys-lru
+      --appendonly           yes
+      --cluster-enabled      yes
+      --cluster-config-file  nodes.conf
+      --cluster-node-timeout 5000
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: '3s'
@@ -40,8 +41,9 @@ services:
   src-redis-cluster:
     image: "redis:5.0.9"
     command: >
-      bash -c "apt-get update
-      && apt-get install --no-install-recommends --no-install-suggests -y dnsutils
+      bash -c "apt-get update > /dev/null
+      && apt-get install --no-install-recommends --no-install-suggests -y dnsutils > /dev/null
+      && rm -rf /var/lib/apt/lists/*
       && yes yes | redis-cli --cluster create
       $$(dig src1 +short):6379
       $$(dig src2 +short):6379
@@ -66,12 +68,13 @@ services:
   dest1: &dest
     image: "redis:5.0.7"
     command: >
-      redis-server --maxmemory            64mb
-                   --maxmemory-policy     allkeys-lru
-                   --appendonly           yes
-                   --cluster-enabled      yes
-                   --cluster-config-file  nodes.conf
-                   --cluster-node-timeout 5000
+      redis-server
+      --maxmemory            64mb
+      --maxmemory-policy     allkeys-lru
+      --appendonly           yes
+      --cluster-enabled      yes
+      --cluster-config-file  nodes.conf
+      --cluster-node-timeout 5000
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: '3s'
@@ -102,8 +105,9 @@ services:
   dest-redis-cluster:
     image: "redis:5.0.9"
     command: >
-      bash -c "apt-get update
-      && apt-get install --no-install-recommends --no-install-suggests -y dnsutils
+      bash -c "apt-get update > /dev/null
+      && apt-get install --no-install-recommends --no-install-suggests -y dnsutils > /dev/null
+      && rm -rf /var/lib/apt/lists/*
       && yes yes | redis-cli --cluster create
       $$(dig dest1 +short):6379
       $$(dig dest2 +short):6379
