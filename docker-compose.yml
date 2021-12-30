@@ -39,7 +39,7 @@ services:
     ports:
       - "16376:6379"
   src-redis-cluster:
-    image: "redis:5.0.9"
+    image: "redis:5.0.7"
     command: >
       bash -c "apt-get update > /dev/null
       && apt-get install --no-install-recommends --no-install-suggests -y dnsutils > /dev/null
@@ -103,7 +103,7 @@ services:
     ports:
       - "16386:6379"
   dest-redis-cluster:
-    image: "redis:5.0.9"
+    image: "redis:5.0.7"
     command: >
       bash -c "apt-get update > /dev/null
       && apt-get install --no-install-recommends --no-install-suggests -y dnsutils > /dev/null
