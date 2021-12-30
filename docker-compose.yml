@@ -13,8 +13,8 @@ services:
       --cluster-node-timeout 5000
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: '3s'
-      timeout: '1s'
+      interval: '5s'
+      timeout: '3s'
       retries: 10
     ports:
       - "16371:6379"
@@ -77,8 +77,8 @@ services:
       --cluster-node-timeout 5000
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: '3s'
-      timeout: '1s'
+      interval: '5s'
+      timeout: '3s'
       retries: 10
     ports:
       - "16381:6379"
