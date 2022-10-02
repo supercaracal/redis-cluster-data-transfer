@@ -68,7 +68,7 @@ jobs:
                 echo "Max attempts exceeded: $cnt times"
                 break
               fi
-              if [[ docker compose exec src1 redis-cli -c get "key${i}" ]]
+              if docker compose exec src1 redis-cli -c get "key${i}"
               then
                 echo "key${i}: src: OK"
               else
@@ -77,7 +77,7 @@ jobs:
                 : $((++cnt))
                 continue
               fi
-              if [[ docker compose exec dest1 redis-cli -c get "key${i}" ]]
+              if docker compose exec dest1 redis-cli -c get "key${i}"
               then
                 echo "key${i}: dest: OK"
               else
