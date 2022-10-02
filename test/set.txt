@@ -1,0 +1,17 @@
+SET key0 00
+SET key1 01
+SET key2 02
+SET key3 03
+SET key4 04
+SET key5 05
+SET key6 06
+SET key7 07
+SET key8 08
+SET key9 09
+SADD key10 10-a
+SADD key10 10-b
+ZADD key11 1 11-a
+ZADD key11 2 11-b
+RPUSH key12 12-a
+RPUSH key12 12-b
+HMSET key13 f1 13-a f2 13-b

@@ -12,13 +12,13 @@ jobs:
   build:
     name: Build
     timeout-minutes: 5
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest", "macos-latest"]
         cc: ["gcc", "clang"]
         task: ["build", "debug", "test"]
-    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -39,3 +39,40 @@ jobs:
         run: pip install cpplint
       - name: Run
         run: make lint
+  test:
+    name: Test
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        src: ["4", "3"]
+        dest: ["7", "6", "5"]
+    env:
+      SRC_REDIS_VERSION: ${{ matrix.src }}
+      DEST_REDIS_VERSION: ${{ matrix.dest }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Pull Docker images
+        run: |
+          docker pull redis:$SRC_REDIS_VERSION
+          docker pull redis:$DEST_REDIS_VERSION
+      - name: Run containers
+        run: docker compose up -d
+      - name: Wait for the cluster to be ready
+        run: bash test/wait.sh
+      - name: Build tools
+        run: make
+      - name: Prepare test data
+        run: cat test/set.txt | bin/cli 127.0.0.1:16371 --bulk
+      - name: Run copy
+        run: bin/exe 127.0.0.1:16371 127.0.0.1:16381
+      - name: Diff bytes
+        run: bin/diff 127.0.0.1:16371 127.0.0.1:16381
+      - name: Diff real data
+        run: diff <(cat test/get.txt | bin/cli 127.0.0.1:16371 --bulk | sort) <(cat test/get.txt | bin/cli 127.0.0.1:16381 --bulk | sort)
+      - name: Stop containers
+        run: docker compose down
+      - name: Clean tools
+        run: make clean

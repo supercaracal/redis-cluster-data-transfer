@@ -1,0 +1,14 @@
+GET key0
+GET key1
+GET key2
+GET key3
+GET key4
+GET key5
+GET key6
+GET key7
+GET key8
+GET key9
+SMEMBERS key10
+ZRANGE key11 0 -1 WITHSCORES
+LRANGE key12 0 -1
+HMGET key13 f1 f2
