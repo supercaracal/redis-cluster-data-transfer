@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-MAX_ATTEMPTS=20
+MAX_ATTEMPTS=30
 
 for i in {0..9}; do
   cnt=0
@@ -15,19 +15,19 @@ for i in {0..9}; do
       break
     fi
 
-    if docker compose exec src1 redis-cli -c get "key${i}" | grep -q 'nil'; then
-      echo "key${i}: src: OK"
+    if docker compose exec src1 redis-cli -c --no-raw get "key${i}" | grep -q nil; then
+      echo "OK: key${i}: src"
     else
-      echo "key${i}: src: NG"
+      echo "NG: key${i}: src"
       sleep 1
       : $((++cnt))
       continue
     fi
 
-    if docker compose exec dest1 redis-cli -c get "key${i}" | grep -q 'nil'; then
-      echo "key${i}: dest: OK"
+    if docker compose exec dest1 redis-cli -c --no-raw get "key${i}" | grep -q nil; then
+      echo "OK: key${i}: dest"
     else
-      echo "key${i}: dest: NG"
+      echo "NG: key${i}: dest"
       sleep 1
       : $((++cnt))
       continue
