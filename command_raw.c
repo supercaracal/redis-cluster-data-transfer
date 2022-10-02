@@ -158,6 +158,7 @@ static inline void parseBulkStringAsBinary(Reply *reply, char c) {
     if (c == '\r') return;  // skip
     if (c == '\n') {
       // completed
+      reply->lines[reply->i][reply->nextIdxOfLastLine] = '\0';
       ADVANCE_REPLY_LINE(reply);
       return;
     }
@@ -165,7 +166,7 @@ static inline void parseBulkStringAsBinary(Reply *reply, char c) {
   }
 
   if (reply->lines[reply->i] == NULL) {
-    reply->lines[reply->i] = (char *) malloc(sizeof(char) * reply->sizes[reply->i]);
+    reply->lines[reply->i] = (char *) malloc(sizeof(char) * reply->sizes[reply->i] + 1);
     ASSERT_MALLOC(reply->lines[reply->i], "for new reply of binary");
   }
 
