@@ -9,15 +9,6 @@ on:
     branches:
       - "*"
 jobs:
-  test:
-    name: Test
-    timeout-minutes: 5
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v3
-      - name: Run
-        run: make test
   build:
     name: Build
     timeout-minutes: 5
@@ -26,7 +17,7 @@ jobs:
       matrix:
         os: ["ubuntu-latest", "macos-latest"]
         cc: ["gcc", "clang"]
-        task: ["build", "debug"]
+        task: ["build", "debug", "test"]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out code
