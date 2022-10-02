@@ -1,5 +1,4 @@
 ---
-version: '3.9'
 services:
   src1: &src
     image: "redis:3.0.2"
@@ -13,8 +12,8 @@ services:
       --cluster-node-timeout 5000
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: '5s'
-      timeout: '3s'
+      interval: '7s'
+      timeout: '5s'
       retries: 10
     ports:
       - "16371:6379"
@@ -77,8 +76,8 @@ services:
       --cluster-node-timeout 5000
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: '5s'
-      timeout: '3s'
+      interval: '7s'
+      timeout: '5s'
       retries: 10
     ports:
       - "16381:6379"
@@ -129,8 +128,3 @@ services:
         condition: service_healthy
       dest6:
         condition: service_healthy
-networks:
-  default:
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
