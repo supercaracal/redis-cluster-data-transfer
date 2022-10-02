@@ -1,7 +1,7 @@
 ---
 services:
   src1: &src
-    image: "redis:3.0.2"
+    image: "redis:${SRC_REDIS_VERSION:-3}"
     command: >
       redis-server
       --maxmemory            64mb
@@ -10,10 +10,11 @@ services:
       --cluster-enabled      yes
       --cluster-config-file  nodes.conf
       --cluster-node-timeout 5000
+    restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: '7s'
-      timeout: '5s'
+      interval: "7s"
+      timeout: "5s"
       retries: 10
     ports:
       - "16371:6379"
@@ -37,35 +38,8 @@ services:
     <<: *src
     ports:
       - "16376:6379"
-  src-redis-cluster:
-    image: "redis:5.0.7"
-    command: >
-      bash -c "apt-get update > /dev/null
-      && apt-get install --no-install-recommends --no-install-suggests -y dnsutils > /dev/null
-      && rm -rf /var/lib/apt/lists/*
-      && yes yes | redis-cli --cluster create
-      $$(dig src1 +short):6379
-      $$(dig src2 +short):6379
-      $$(dig src3 +short):6379
-      $$(dig src4 +short):6379
-      $$(dig src5 +short):6379
-      $$(dig src6 +short):6379
-      --cluster-replicas 1"
-    depends_on:
-      src1:
-        condition: service_healthy
-      src2:
-        condition: service_healthy
-      src3:
-        condition: service_healthy
-      src4:
-        condition: service_healthy
-      src5:
-        condition: service_healthy
-      src6:
-        condition: service_healthy
   dest1: &dest
-    image: "redis:5.0.7"
+    image: "redis:${DEST_REDIS_VERSION:-5}"
     command: >
       redis-server
       --maxmemory            64mb
@@ -74,10 +48,11 @@ services:
       --cluster-enabled      yes
       --cluster-config-file  nodes.conf
       --cluster-node-timeout 5000
+    restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: '7s'
-      timeout: '5s'
+      interval: "7s"
+      timeout: "5s"
       retries: 10
     ports:
       - "16381:6379"
@@ -101,12 +76,20 @@ services:
     <<: *dest
     ports:
       - "16386:6379"
-  dest-redis-cluster:
-    image: "redis:5.0.7"
+  clustering:
+    image: "redis:${DEST_REDIS_VERSION:-5}"
     command: >
       bash -c "apt-get update > /dev/null
       && apt-get install --no-install-recommends --no-install-suggests -y dnsutils > /dev/null
       && rm -rf /var/lib/apt/lists/*
+      && yes yes | redis-cli --cluster create
+      $$(dig src1 +short):6379
+      $$(dig src2 +short):6379
+      $$(dig src3 +short):6379
+      $$(dig src4 +short):6379
+      $$(dig src5 +short):6379
+      $$(dig src6 +short):6379
+      --cluster-replicas 1
       && yes yes | redis-cli --cluster create
       $$(dig dest1 +short):6379
       $$(dig dest2 +short):6379
@@ -116,6 +99,18 @@ services:
       $$(dig dest6 +short):6379
       --cluster-replicas 1"
     depends_on:
+      src1:
+        condition: service_healthy
+      src2:
+        condition: service_healthy
+      src3:
+        condition: service_healthy
+      src4:
+        condition: service_healthy
+      src5:
+        condition: service_healthy
+      src6:
+        condition: service_healthy
       dest1:
         condition: service_healthy
       dest2:

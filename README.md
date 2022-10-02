@@ -45,7 +45,7 @@ so on and so forth
 $ git clone https://github.com/supercaracal/redis-cluster-data-transfer.git
 $ cd redis-cluster-data-transfer/
 $ make
-$ docker-compose up -d
+$ docker compose up -d
 
 $ bin/cli 127.0.0.1:16371
 >> set key1 1
