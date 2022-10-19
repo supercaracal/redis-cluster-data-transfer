@@ -5,9 +5,12 @@ set -o nounset
 set -o pipefail
 
 MAX_ATTEMPTS=30
+SRC_NODE=src1
+DEST_NODE=dest1
 
 for i in {0..9}; do
   cnt=0
+  key="key${i}"
 
   while : ; do
     if [[ ${cnt} -ge ${MAX_ATTEMPTS} ]]; then
@@ -15,19 +18,19 @@ for i in {0..9}; do
       break
     fi
 
-    if docker compose exec src1 redis-cli -c --no-raw get "key${i}" | grep -q nil; then
-      echo "OK: key${i}: src"
+    if docker compose exec $SRC_NODE redis-cli -c --no-raw get $key | grep -q nil; then
+      echo "OK: ${key}: ${SRC_NODE}"
     else
-      echo "NG: key${i}: src"
+      echo "NG: ${key}: ${SRC_NODE}"
       sleep 1
       : $((++cnt))
       continue
     fi
 
-    if docker compose exec dest1 redis-cli -c --no-raw get "key${i}" | grep -q nil; then
-      echo "OK: key${i}: dest"
+    if docker compose exec $DEST_NODE redis-cli -c --no-raw get $key | grep -q nil; then
+      echo "OK: ${key}: ${DEST_NODE}"
     else
-      echo "NG: key${i}: dest"
+      echo "NG: ${key}: ${DEST_NODE}"
       sleep 1
       : $((++cnt))
       continue
