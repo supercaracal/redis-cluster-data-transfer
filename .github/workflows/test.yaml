@@ -1,6 +1,8 @@
 ---
 # @see https://help.github.com/ja/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions
 name: Test
+permissions:
+  contents: read
 on:
   push:
     branches:
