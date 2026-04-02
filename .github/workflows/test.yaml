@@ -1,6 +1,8 @@
 ---
 # @see https://help.github.com/ja/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions
 name: Test
+permissions:
+  contents: read
 on:
   push:
     branches:
@@ -31,12 +33,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
       - name: Install cpplint
-        run: pip install cpplint
+        run: sudo apt install -y cpplint
       - name: Run
         run: make lint
   test:
@@ -47,7 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         src: ["4", "3"]
-        dest: ["7", "6", "5"]
+        dest: ["8", "7", "6", "5"]
     env:
       SRC_REDIS_VERSION: ${{ matrix.src }}
       DEST_REDIS_VERSION: ${{ matrix.dest }}
