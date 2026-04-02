@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         src: ["4", "3"]
-        dest: ["7", "6", "5"]
+        dest: ["8", "7", "6", "5"]
     env:
       SRC_REDIS_VERSION: ${{ matrix.src }}
       DEST_REDIS_VERSION: ${{ matrix.dest }}
